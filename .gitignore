@@ -1,0 +1,9 @@
+backend/.env
+backend/.venv/
+backend/__pycache__/
+backend/.ruff_cache/
+backend/.pytest_cache/
+backend/data/company_index_populated.json
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,96 @@
+version: "3.9"
+
+# Local services only — Postgres lives in NeonDB (cloud)
+# Run: docker-compose up -d          → starts memgraph + redis
+# Run: docker-compose --profile full up -d → also starts api + worker containers
+
+services:
+  memgraph:
+    image: memgraph/memgraph-mage:latest
+    container_name: firstknock-memgraph
+    ports:
+      - "7687:7687"
+      - "7444:7444"
+    volumes:
+      - memgraph-data:/var/lib/memgraph
+      - memgraph-log:/var/log/memgraph
+    command: >
+      --storage-snapshot-interval-sec=300
+      --storage-snapshot-retention-count=3
+      --storage-wal-enabled=true
+      --storage-wal-file-flush-every-n-tx=100
+      --data-directory=/var/lib/memgraph
+      --log-level=WARNING
+      --bolt-server-name-for-init=Neo4j/5.11.0
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/7687' 2>/dev/null && echo ok || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  memgraph-lab:
+    image: memgraph/lab:latest
+    container_name: firstknock-lab
+    ports:
+      - "3000:3000"
+    environment:
+      QUICK_CONNECT_MG_HOST: memgraph
+      QUICK_CONNECT_MG_PORT: 7687
+    depends_on:
+      memgraph:
+        condition: service_started
+
+  redis:
+    image: redis:7-alpine
+    container_name: firstknock-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build: .
+    container_name: firstknock-api
+    ports:
+      - "8000:8000"
+    environment:
+      MEMGRAPH_URL: bolt://memgraph:7687
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    env_file: .env
+    depends_on:
+      memgraph:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    command: uvicorn firstknock.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./firstknock:/app/firstknock
+    profiles:
+      - full
+
+  worker:
+    build: .
+    container_name: firstknock-worker
+    environment:
+      MEMGRAPH_URL: bolt://memgraph:7687
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: celery -A firstknock.workers.celery_app worker --loglevel=info --concurrency=4
+    profiles:
+      - full
+
+volumes:
+  memgraph-data:
+  memgraph-log:
+  redis-data:

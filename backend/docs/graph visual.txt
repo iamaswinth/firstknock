@@ -1,0 +1,7 @@
+ 1. Person + Companies + their skills
+  MATCH (p:Person)-[w:WORKED_AT]->(c:Company)-[u:USED_SKILL]->(s:Skill)
+  RETURN p, w, c, u, s
+
+  2. Person + Projects + their tech stacks
+  MATCH (p:Person)-[b:BUILT]->(proj:Project)-[u:USES]->(s:Skill)
+  RETURN p, b, proj, u, s

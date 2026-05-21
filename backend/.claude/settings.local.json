@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip --version)",
+      "Bash(docker-compose --version)",
+      "Bash(docker-compose up *)",
+      "Bash(pip install *)",
+      "Bash(alembic upgrade *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\" -Recurse -Force)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\" -Directory)",
+      "Bash(Select-Object Name)",
+      "WebFetch(domain:memgraph.com)",
+      "WebFetch(domain:neo4j.com)"
+    ]
+  }
+}

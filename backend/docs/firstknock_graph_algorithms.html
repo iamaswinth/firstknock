@@ -1,0 +1,279 @@
+
+<h2 class="sr-only">Graph algorithm recommendations for FirstKnock — click each algorithm to see what it does, why it fits, and the Neo4j GDS code</h2>
+<style>
+.alg-btn{width:100%;text-align:left;padding:11px 14px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);background:var(--color-background-primary);cursor:pointer;display:flex;align-items:center;gap:10px;transition:background .12s}
+.alg-btn:hover{background:var(--color-background-secondary)}
+.alg-btn.sel{border-color:var(--color-border-secondary);background:var(--color-background-secondary)}
+.alg-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.alg-name{font-size:13px;font-weight:500;color:var(--color-text-primary);flex:1}
+.alg-tag{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:500}
+.pri-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-weight:500;margin-left:auto}
+.detail-card{border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);background:var(--color-background-primary);overflow:hidden;margin-top:12px}
+.dc-header{padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.dc-body{padding:14px 16px}
+.dc-section{margin-bottom:14px}
+.dc-label{font-size:11px;color:var(--color-text-tertiary);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+.dc-text{font-size:13px;color:var(--color-text-secondary);line-height:1.6}
+.code-block{background:var(--color-background-tertiary);border-radius:var(--border-radius-md);padding:12px 14px;font-size:11px;font-family:var(--font-mono);color:var(--color-text-secondary);line-height:1.75;white-space:pre-wrap;word-break:break-word;margin-top:6px}
+.out-chip{display:inline-block;padding:3px 9px;border-radius:10px;font-size:11px;font-weight:500;margin:2px 2px}
+.score-row{display:flex;align-items:center;gap:10px;margin:4px 0}
+.score-bar{flex:1;height:5px;background:var(--color-border-tertiary);border-radius:3px}
+.score-fill{height:5px;border-radius:3px}
+.cat-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.cat-btn{font-size:11px;padding:3px 10px;border-radius:20px;border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);cursor:pointer;color:var(--color-text-secondary)}
+.cat-btn.ca{background:var(--color-background-secondary);color:var(--color-text-primary)}
+</style>
+
+<div class="cat-row" id="cats">
+  <button class="cat-btn ca" onclick="setCat('all')">All algorithms</button>
+  <button class="cat-btn" onclick="setCat('similarity')">Similarity</button>
+  <button class="cat-btn" onclick="setCat('centrality')">Centrality</button>
+  <button class="cat-btn" onclick="setCat('community')">Community detection</button>
+  <button class="cat-btn" onclick="setCat('pathfinding')">Pathfinding</button>
+  <button class="cat-btn" onclick="setCat('linkpred')">Link prediction</button>
+</div>
+
+<div id="alg-list" style="display:flex;flex-direction:column;gap:5px"></div>
+<div id="detail-wrap"></div>
+
+<script>
+const algos=[
+  {
+    id:'ppr',cat:'centrality',priority:'core',
+    name:'Personalized PageRank',tag:'Centrality',
+    tagColor:'#534AB7',tagBg:'#EEEDFE',tagText:'#3C3489',
+    numBg:'#EEEDFE',numColor:'#3C3489',
+    scores:{fit:95,complexity:40,speed:75},
+    why:'The single most powerful algorithm for FirstKnock. Starting from Aswinthraj\'s node, PPR walks the graph and scores every other node (jobs, companies, skills) by how close they are to him — weighted by confidence. Nodes reached via high-confidence edges rank higher. This is how you surface "AI agent engineer at a voice startup" even if Aswinthraj never wrote those words.',
+    output:['Job match score','Company affinity score','Ranked recommendations'],
+    outColors:['#7F77DD22:#3C3489','#1D9E7522:#085041','#378ADD22:#0C447C'],
+    code:`CALL gds.pageRank.stream('resume-graph', {
+  maxIterations: 20,
+  dampingFactor: 0.85,
+  sourceNodes: [personNode],  // start FROM Aswinthraj
+  relationshipWeightProperty: 'confidence'
+})
+YIELD nodeId, score
+RETURN gds.util.asNode(nodeId).name AS entity, score
+ORDER BY score DESC LIMIT 20`
+  },
+  {
+    id:'nodeSim',cat:'similarity',priority:'core',
+    name:'Node Similarity (Jaccard)',tag:'Similarity',
+    tagColor:'#0F6E56',tagBg:'#E1F5EE',tagText:'#085041',
+    numBg:'#E1F5EE',numColor:'#085041',
+    scores:{fit:90,complexity:35,speed:80},
+    why:'Compares Aswinthraj\'s skill set against every job posting\'s required skills using Jaccard overlap. Crucially, it works on BOTH explicit AND inferred HAS_SKILL edges — so a job requiring "hybrid search" finds him through the inferred edge, not just stated ones. Also identifies similar candidates for benchmarking.',
+    output:['Person↔Job similarity score','Similar candidate pairs','Skill overlap ratio'],
+    outColors:['#1D9E7522:#085041','#7F77DD22:#3C3489','#63992222:#27500A'],
+    code:`CALL gds.nodeSimilarity.stream('skill-graph', {
+  similarityCutoff: 0.3,
+  topK: 20,
+  relationshipWeightProperty: 'confidence'
+})
+YIELD node1, node2, similarity
+WHERE gds.util.asNode(node1).type = 'Person'
+  AND gds.util.asNode(node2).type = 'Job'
+RETURN gds.util.asNode(node1).name AS person,
+       gds.util.asNode(node2).title AS job,
+       round(similarity * 100) / 100 AS score
+ORDER BY score DESC`
+  },
+  {
+    id:'louvain',cat:'community',priority:'core',
+    name:'Louvain community detection',tag:'Community',
+    tagColor:'#993C1D',tagBg:'#FAECE7',tagText:'#712B13',
+    numBg:'#FAECE7',numColor:'#712B13',
+    scores:{fit:85,complexity:45,speed:65},
+    why:'Finds natural skill clusters in the graph without you hardcoding them. Run it on the skill graph and it discovers communities like {LangGraph, Google ADK, Agent state machines, Tool calling} → "Agentic AI cluster", {Pinecone, BGE-Reranker, Hybrid search} → "RAG cluster". These clusters become Aswinthraj\'s domain tags used for job matching and cold email targeting.',
+    output:['Skill cluster IDs','Domain auto-labeling','Community membership score'],
+    outColors:['#D85A3022:#712B13','#D4537E22:#72243E','#BA751722:#633806'],
+    code:`CALL gds.louvain.stream('skill-graph', {
+  relationshipWeightProperty: 'coOccurrence',
+  maxLevels: 10,
+  maxIterations: 10
+})
+YIELD nodeId, communityId
+WITH communityId, collect(gds.util.asNode(nodeId).name) AS skills
+WHERE size(skills) > 2
+RETURN communityId,
+       skills,
+       size(skills) AS clusterSize
+ORDER BY clusterSize DESC`
+  },
+  {
+    id:'dijkstra',cat:'pathfinding',priority:'core',
+    name:'Dijkstra shortest path',tag:'Pathfinding',
+    tagColor:'#185FA5',tagBg:'#E6F1FB',tagText:'#0C447C',
+    numBg:'#E6F1FB',numColor:'#0C447C',
+    scores:{fit:88,complexity:30,speed:90},
+    why:'Powers the "why did we recommend this job" explanation. When FirstKnock recommends a voice AI role, it runs Dijkstra from Aswinthraj to that job and surfaces the shortest path: Person→BUILT→Mind Surf→USES→Pinecone→IMPLIES→Hybrid search→REQUIRED_BY→Job. This path IS the explanation shown to the user — transparent, trustworthy matching.',
+    output:['Match explanation path','Hop count','Path confidence score'],
+    outColors:['#378ADD22:#0C447C','#63992222:#27500A','#7F77DD22:#3C3489'],
+    code:`CALL gds.shortestPath.dijkstra.stream('resume-graph', {
+  sourceNode: personNode,
+  targetNode: jobNode,
+  relationshipWeightProperty: 'inverseConfidence'
+  // weight = 1 - confidence so HIGH confidence = SHORT path
+})
+YIELD index, sourceNode, targetNode, totalCost, nodeIds, path
+RETURN [n IN gds.util.asNodes(nodeIds) | n.name] AS matchPath,
+       round((1 - totalCost) * 100) / 100 AS pathConfidence`
+  },
+  {
+    id:'adamicAdar',cat:'linkpred',priority:'core',
+    name:'Adamic-Adar link prediction',tag:'Link prediction',
+    tagColor:'#854F0B',tagBg:'#FAEEDA',tagText:'#633806',
+    numBg:'#FAEEDA',numColor:'#633806',
+    scores:{fit:82,complexity:50,speed:70},
+    why:'This IS the implicit inference engine made into a graph algorithm. Adamic-Adar scores how likely a missing edge is between two nodes, weighted by their shared neighbors. "Does Aswinthraj know Linux admin?" — check shared neighbors between him and that skill node. The more shared context (Azure, Docker, VPS patterns), the higher the score. Use this to discover inferred skills you haven\'t hardcoded rules for yet.',
+    output:['Missing skill probability','Inference confidence','New HAS_SKILL edges to write'],
+    outColors:['#BA751722:#633806','#63992222:#27500A','#1D9E7522:#085041'],
+    code:`CALL gds.linkprediction.adamicAdar.stream('skill-graph', {
+  relationshipWeightProperty: 'confidence',
+  topK: 30
+})
+YIELD node1, node2, score
+WHERE gds.util.asNode(node1).id = $personId
+  AND gds.util.asNode(node2).type = 'Skill'
+  AND NOT EXISTS((node1)-[:HAS_SKILL]->(node2))
+RETURN gds.util.asNode(node2).name AS inferredSkill,
+       round(score * 100) / 100 AS confidence
+ORDER BY confidence DESC LIMIT 15`
+  },
+  {
+    id:'betweenness',cat:'centrality',priority:'secondary',
+    name:'Betweenness centrality',tag:'Centrality',
+    tagColor:'#534AB7',tagBg:'#EEEDFE',tagText:'#3C3489',
+    numBg:'#EEEDFE',numColor:'#3C3489',
+    scores:{fit:75,complexity:55,speed:55},
+    why:'Finds "bridge skills" — skills that connect multiple clusters. In Aswinthraj\'s graph, FastAPI sits between the AI cluster and the backend cluster, making it a high-betweenness node. High-betweenness skills on his profile = rare, cross-domain value. This feeds the cold email hook: "the intersection of voice AI and high-performance async backend is where I live".',
+    output:['Bridge skill score','Cross-domain connector skills','Profile uniqueness signal'],
+    outColors:['#7F77DD22:#3C3489','#D85A3022:#712B13','#1D9E7522:#085041'],
+    code:`CALL gds.betweenness.stream('skill-graph')
+YIELD nodeId, score
+WITH gds.util.asNode(nodeId) AS skill, score
+WHERE skill.type = 'Skill'
+  AND EXISTS((:Person {id:$personId})-[:HAS_SKILL]->(skill))
+RETURN skill.name AS bridgeSkill,
+       round(score) AS betweennessScore
+ORDER BY score DESC LIMIT 10`
+  },
+  {
+    id:'wcc',cat:'community',priority:'secondary',
+    name:'Weakly connected components',tag:'Community',
+    tagColor:'#993C1D',tagBg:'#FAECE7',tagText:'#712B13',
+    numBg:'#FAECE7',numColor:'#712B13',
+    scores:{fit:70,complexity:20,speed:95},
+    why:'A graph health check, run after every ingestion. If Aswinthraj\'s person node is in a different component from the job graph, the matching is broken. Also detects orphan skill nodes (skills that exist but have no connections to any person or job) — signals missing enrichment. Run this after every ingestion as a validation step.',
+    output:['Component membership','Orphan node detection','Graph connectivity score'],
+    outColors:['#63992222:#27500A','#D85A3022:#712B13','#378ADD22:#0C447C'],
+    code:`CALL gds.wcc.stream('resume-graph')
+YIELD nodeId, componentId
+WITH componentId, count(*) AS size,
+     collect(gds.util.asNode(nodeId).name)[0..3] AS sample
+RETURN componentId, size, sample
+ORDER BY size DESC
+// Flag: if person node not in largest component → broken graph`
+  },
+  {
+    id:'knn',cat:'similarity',priority:'secondary',
+    name:'K-nearest neighbors (KNN)',tag:'Similarity',
+    tagColor:'#0F6E56',tagBg:'#E1F5EE',tagText:'#085041',
+    numBg:'#E1F5EE',numColor:'#085041',
+    scores:{fit:78,complexity:40,speed:72},
+    why:'Uses the vector embeddings stored on each node to find the K most similar jobs or candidates. Works in the embedding space — so "multimodal AI engineer" and "voice systems developer" are close even if they share no exact skill strings. Complements Node Similarity (which works on graph structure). Use KNN for semantic match, Node Similarity for structural match — combine both scores.',
+    output:['Semantic job matches','Similar candidate profiles','Embedding-space neighbors'],
+    outColors:['#1D9E7522:#085041','#7F77DD22:#3C3489','#D4537E22:#72243E'],
+    code:`CALL gds.knn.stream('embedding-graph', {
+  topK: 10,
+  nodeProperties: ['embedding'],
+  similarityCutoff: 0.75
+})
+YIELD node1, node2, similarity
+WHERE gds.util.asNode(node1).type = 'Person'
+  AND gds.util.asNode(node2).type = 'Job'
+RETURN gds.util.asNode(node1).name AS person,
+       gds.util.asNode(node2).title AS job,
+       round(similarity * 100) / 100 AS semanticScore
+ORDER BY semanticScore DESC`
+  },
+];
+
+let activeCat='all';
+let selectedId=null;
+
+function setCat(cat){
+  activeCat=cat;
+  document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('ca'));
+  event.target.classList.add('ca');
+  renderList();
+}
+
+function renderList(){
+  const filtered=algos.filter(a=>activeCat==='all'||a.cat===activeCat);
+  const list=document.getElementById('alg-list');
+  list.innerHTML='';
+  filtered.forEach((a,i)=>{
+    const btn=document.createElement('button');
+    btn.className='alg-btn'+(selectedId===a.id?' sel':'');
+    btn.onclick=()=>select(a.id);
+    btn.innerHTML=`
+      <span class="alg-num" style="background:${a.numBg};color:${a.numColor}">${i+1}</span>
+      <span class="alg-name">${a.name}</span>
+      <span class="alg-tag" style="background:${a.tagBg};color:${a.tagText}">${a.tag}</span>
+      <span class="pri-badge" style="background:${a.priority==='core'?'#E1F5EE':'#F1EFE8'};color:${a.priority==='core'?'#085041':'#444441'}">${a.priority==='core'?'core':'secondary'}</span>
+    `;
+    list.appendChild(btn);
+  });
+}
+
+function select(id){
+  selectedId=id;
+  renderList();
+  const a=algos.find(x=>x.id===id);
+  if(!a){document.getElementById('detail-wrap').innerHTML='';return;}
+  const scoreBar=(label,val,col)=>`
+    <div class="score-row">
+      <span style="font-size:11px;color:var(--color-text-secondary);width:90px">${label}</span>
+      <div class="score-bar"><div class="score-fill" style="width:${val}%;background:${col}"></div></div>
+      <span style="font-size:11px;color:var(--color-text-secondary);width:28px;text-align:right">${val}</span>
+    </div>`;
+  const chips=a.output.map((o,i)=>{
+    const [bg,fg]=a.outColors[i].split(':');
+    return `<span class="out-chip" style="background:${bg};color:${fg}">${o}</span>`;
+  }).join('');
+  document.getElementById('detail-wrap').innerHTML=`
+    <div class="detail-card">
+      <div class="dc-header">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:15px;font-weight:500;color:var(--color-text-primary)">${a.name}</span>
+          <span class="alg-tag" style="background:${a.tagBg};color:${a.tagText}">${a.tag}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:2px;margin-top:8px">
+          ${scoreBar('Fit for FirstKnock',a.scores.fit,'#1D9E75')}
+          ${scoreBar('Implementation ease',a.scores.speed,'#378ADD')}
+          ${scoreBar('Complexity',a.scores.complexity,'#D85A30')}
+        </div>
+      </div>
+      <div class="dc-body">
+        <div class="dc-section">
+          <div class="dc-label">Why this fits your use case</div>
+          <div class="dc-text">${a.why}</div>
+        </div>
+        <div class="dc-section">
+          <div class="dc-label">What it outputs</div>
+          <div>${chips}</div>
+        </div>
+        <div class="dc-section">
+          <div class="dc-label">Neo4j GDS call</div>
+          <div class="code-block">${a.code}</div>
+        </div>
+        <button onclick="sendPrompt('Show me how to implement ${a.name} step by step for the FirstKnock resume graph RAG in Neo4j GDS')" style="font-size:12px;padding:6px 12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);background:var(--color-background-primary);cursor:pointer;color:var(--color-text-secondary);margin-top:4px">Full implementation guide ↗</button>
+      </div>
+    </div>`;
+}
+
+renderList();
+select('ppr');
+</script>
