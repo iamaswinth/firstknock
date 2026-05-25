@@ -30,10 +30,16 @@ class Settings(BaseSettings):
 
     # Pipeline tuning
     extraction_model: str = "claude-sonnet-4-6"
+    inference_model: str = "claude-haiku-4-5-20251001"
     embedding_model: str = "text-embedding-3-small"
     embedding_dimension: int = 1536
     skill_alias_match_threshold: int = 92
     company_match_threshold: int = 88
+
+    # LangSmith tracing (optional — set in .env to enable)
+    langchain_tracing_v2: str = "false"
+    langchain_api_key: str = ""
+    langchain_project: str = "firstknock"
 
 
 settings = Settings()

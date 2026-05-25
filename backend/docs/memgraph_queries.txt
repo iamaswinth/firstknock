@@ -1,0 +1,213 @@
+========================================================
+FIRSTKNOCK — MEMGRAPH CYPHER QUERIES
+========================================================
+Replace $person_id with: '01e46dca-8d5a-434f-8550-009a601a8c67'
+Open Memgraph Lab at http://localhost:3000
+========================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 0 — THE STRUCTURED FULL RESUME VIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Algorithm: Context-First Ego Network (BFS layered)
+  Layer 0 → Person (hub)
+  Layer 1 → Companies / Projects / Education (contexts)
+  Layer 2 → Skills through those contexts (clustered naturally)
+  Layer 3 → High-confidence inferred skills only (>= 0.8) attached to Person
+
+Skills appear next to where they were actually used, not floating loose.
+Inferred skills that have no context are shown directly on the person at
+reduced opacity (Memgraph Lab colours edges by relationship type automatically).
+Use Layout: Force-directed in Memgraph Lab for best results.
+
+MATCH (p:Person {person_id: $person_id})
+
+// Layer 1a — Work experience
+OPTIONAL MATCH (p)-[w:WORKED_AT]->(c:Company)
+OPTIONAL MATCH (c)-[cu:USED_SKILL]->(s_c:Skill)
+
+// Layer 1b — Projects
+OPTIONAL MATCH (p)-[b:BUILT]->(proj:Project)
+OPTIONAL MATCH (proj)-[pu:USES]->(s_p:Skill)
+
+// Layer 1c — Education
+OPTIONAL MATCH (p)-[st:STUDIED_AT]->(edu:Institution)
+
+// Layer 3 — Inferred skills with high confidence only (avoids clutter)
+OPTIONAL MATCH (p)-[hi:HAS_SKILL {source: 'inferred'}]->(s_i:Skill)
+WHERE hi.confidence >= 0.8
+
+RETURN p,
+       w, c, cu, s_c,
+       b, proj, pu, s_p,
+       st, edu,
+       hi, s_i
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — VISUAL GRAPH VIEWS (run in Lab)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+-- 1.1  Full person subgraph (person + companies + projects + education)
+MATCH (p:Person {person_id: $person_id})
+OPTIONAL MATCH (p)-[w:WORKED_AT]->(c:Company)
+OPTIONAL MATCH (p)-[:BUILT]->(proj:Project)
+OPTIONAL MATCH (p)-[st:STUDIED_AT]->(i:Institution)
+RETURN p, w, c, proj, st, i
+
+-- 1.2  Person + all explicit skills (coloured by category in Lab)
+MATCH (p:Person {person_id: $person_id})-[r:HAS_SKILL {source: 'explicit'}]->(s:Skill)
+RETURN p, r, s
+
+-- 1.3  Person + all inferred skills
+MATCH (p:Person {person_id: $person_id})-[r:HAS_SKILL {source: 'inferred'}]->(s:Skill)
+RETURN p, r, s
+
+-- 1.4  Person + both explicit and inferred skills (full skill cloud)
+MATCH (p:Person {person_id: $person_id})-[r:HAS_SKILL]->(s:Skill)
+RETURN p, r, s
+
+-- 1.5  Projects and the skills they use
+MATCH (p:Person {person_id: $person_id})-[:BUILT]->(proj:Project)-[u:USES]->(s:Skill)
+RETURN proj, u, s
+
+-- 1.6  Companies and the skills used there
+MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)-[u:USED_SKILL]->(s:Skill)
+RETURN c, u, s
+
+-- 1.7  SKILL_IMPLIES knowledge base (the shared inference graph — all persons)
+MATCH (s1:Skill)-[r:SKILL_IMPLIES]->(s2:Skill)
+RETURN s1, r, s2
+
+-- 1.8  SKILL_IMPLIES seeded from this person's explicit skills only
+MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL {source: 'explicit'}]->(s1:Skill)
+MATCH (s1)-[r:SKILL_IMPLIES]->(s2:Skill)
+RETURN s1, r, s2
+
+-- 1.9  CO_OCCURS_WITH network (skill co-occurrence — strongest edges)
+MATCH (s1:Skill)-[r:CO_OCCURS_WITH]->(s2:Skill)
+WHERE r.coOccurrence >= 3
+RETURN s1, r, s2
+
+-- 1.10  Everything connected to this person (kitchen sink — limit to keep Lab fast)
+MATCH (p:Person {person_id: $person_id})-[r]->(n)
+RETURN p, r, n LIMIT 60
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — USER-FACING RESUME QUERIES (tabular results)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+-- 2.1  Profile summary card
+MATCH (p:Person {person_id: $person_id})
+RETURN p.name        AS name,
+       p.headline    AS headline,
+       p.location    AS location,
+       p.seniority   AS seniority,
+       p.total_experience_months AS experience_months,
+       p.email       AS email,
+       p.github_url  AS github,
+       p.linkedin_url AS linkedin
+
+-- 2.2  All explicit skills grouped by category
+MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL {source: 'explicit'}]->(s:Skill)
+RETURN s.category AS category, collect(s.name) AS skills
+ORDER BY category
+
+-- 2.3  All inferred skills with why they were inferred
+MATCH (p:Person {person_id: $person_id})-[r:HAS_SKILL {source: 'inferred'}]->(s:Skill)
+RETURN s.name          AS skill,
+       s.category      AS category,
+       r.confidence    AS confidence,
+       r.inferred_by   AS inferred_from,
+       r.reason        AS reason
+ORDER BY r.confidence DESC
+
+-- 2.4  Work experience timeline (most recent first)
+MATCH (p:Person {person_id: $person_id})-[r:WORKED_AT]->(c:Company)
+RETURN c.name          AS company,
+       r.title         AS title,
+       r.start_date    AS from,
+       r.end_date      AS to,
+       r.months        AS months,
+       r.is_current    AS current,
+       r.location      AS location
+ORDER BY r.is_current DESC, r.start_date DESC
+
+-- 2.5  Skills used at each company
+MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)-[:USED_SKILL]->(s:Skill)
+RETURN c.name AS company, collect(s.name) AS skills_used
+ORDER BY c.name
+
+-- 2.6  Projects with tech stack
+MATCH (p:Person {person_id: $person_id})-[:BUILT]->(proj:Project)
+OPTIONAL MATCH (proj)-[:USES]->(s:Skill)
+RETURN proj.name        AS project,
+       proj.description AS description,
+       proj.url         AS live_url,
+       proj.github_url  AS github_url,
+       collect(s.name)  AS tech_stack
+
+-- 2.7  Education history
+MATCH (p:Person {person_id: $person_id})-[r:STUDIED_AT]->(i:Institution)
+RETURN i.name       AS institution,
+       r.degree     AS degree,
+       r.field      AS field,
+       r.start_year AS from,
+       r.end_year   AS to
+
+-- 2.8  Top skills by how many places they appear (explicit only)
+MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL {source: 'explicit'}]->(s:Skill)
+OPTIONAL MATCH (p)-[:WORKED_AT]->(c:Company)-[:USED_SKILL]->(s)
+OPTIONAL MATCH (p)-[:BUILT]->(proj:Project)-[:USES]->(s)
+RETURN s.name        AS skill,
+       s.category    AS category,
+       count(DISTINCT c)    AS companies,
+       count(DISTINCT proj) AS projects
+ORDER BY (count(DISTINCT c) + count(DISTINCT proj)) DESC
+
+-- 2.9  Skills the person almost certainly knows (high confidence inferred, >= 0.8)
+MATCH (p:Person {person_id: $person_id})-[r:HAS_SKILL {source: 'inferred'}]->(s:Skill)
+WHERE r.confidence >= 0.8
+RETURN s.name AS skill, r.confidence AS confidence, r.inferred_by AS because
+ORDER BY r.confidence DESC
+
+-- 2.10  Full skill count breakdown
+MATCH (p:Person {person_id: $person_id})-[r:HAS_SKILL]->(s:Skill)
+RETURN r.source AS source, count(s) AS count
+ORDER BY count DESC
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — GRAPH HEALTH / DEBUG QUERIES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+-- 3.1  Total relationship count for this person
+MATCH (p:Person {person_id: $person_id})
+OPTIONAL MATCH (p)-[r]-()
+RETURN count(r) AS total_relationships
+
+-- 3.2  SKILL_IMPLIES knowledge base — most reinforced edges
+MATCH (s1:Skill)-[r:SKILL_IMPLIES]->(s2:Skill)
+RETURN s1.name AS implies_from, s2.name AS implies_to,
+       round(r.confidence * 100) / 100 AS avg_confidence,
+       r.count AS seen_on_n_resumes
+ORDER BY r.count DESC, avg_confidence DESC
+LIMIT 20
+
+-- 3.3  CO_OCCURS_WITH edges — strongest co-occurrences
+MATCH (s1:Skill)-[r:CO_OCCURS_WITH]->(s2:Skill)
+RETURN s1.name AS skill_a, s2.name AS skill_b, r.coOccurrence AS count
+ORDER BY count DESC
+LIMIT 20
+
+-- 3.4  All persons in the graph
+MATCH (p:Person)
+RETURN p.person_id AS id, p.name AS name, p.seniority AS level,
+       p.total_experience_months AS months
+ORDER BY months DESC
+
+-- 3.5  All skill nodes and their categories
+MATCH (s:Skill)
+RETURN s.category AS category, count(s) AS total_skills
+ORDER BY total_skills DESC

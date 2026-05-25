@@ -83,3 +83,65 @@ MATCH (p:Person {person_id: $person_id})
 OPTIONAL MATCH (p)-[r]-()
 RETURN count(r) AS rel_count
 """
+
+# ── Phase 4: Inference Engine queries ────────────────────────────────────────
+
+DELETE_STALE_INFERRED_SKILLS = """
+MATCH (p:Person {person_id: $person_id})-[r:HAS_SKILL {source: 'inferred'}]->()
+DELETE r
+"""
+
+GET_EXPLICIT_SKILLS = """
+MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL {source: 'explicit'}]->(s:Skill)
+RETURN s.name AS name, s.category AS category
+"""
+
+MERGE_INFERRED_HAS_SKILL = """
+MERGE (s:Skill {name: $name})
+ON CREATE SET s.category = $category
+WITH s
+MATCH (p:Person {person_id: $person_id})
+MERGE (p)-[r:HAS_SKILL {source: 'inferred'}]->(s)
+ON CREATE SET r.confidence = $confidence, r.source = 'inferred',
+              r.inferred_by = $inferred_by, r.reason = $reason
+ON MATCH SET  r.confidence = $confidence,
+              r.inferred_by = $inferred_by, r.reason = $reason
+"""
+
+GET_GRAPH_IMPLIED_SKILLS = """
+MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL {source: 'explicit'}]->(known:Skill)
+MATCH (known)-[r:SKILL_IMPLIES]->(candidate:Skill)
+WHERE NOT (p)-[:HAS_SKILL {source: 'explicit'}]->(candidate)
+RETURN known.name AS inferred_from, candidate.name AS name,
+       candidate.category AS category, r.confidence AS confidence, r.reason AS reason
+"""
+
+MERGE_SKILL_IMPLIES = """
+MERGE (s1:Skill {name: $source_skill})
+MERGE (s2:Skill {name: $implied_skill})
+MERGE (s1)-[r:SKILL_IMPLIES]->(s2)
+ON CREATE SET r.confidence = $confidence, r.reason = $reason, r.count = 1
+ON MATCH SET  r.confidence = (r.confidence * r.count + $confidence) / (r.count + 1),
+              r.count = r.count + 1
+"""
+
+GET_TOTAL_EXPERIENCE_MONTHS = """
+MATCH (p:Person {person_id: $person_id})-[r:WORKED_AT]->()
+RETURN sum(r.months) AS total_months
+"""
+
+SET_PERSON_SENIORITY = """
+MATCH (p:Person {person_id: $person_id})
+SET p.seniority = $seniority, p.total_experience_months = $total_months
+"""
+
+ADAMIC_ADAR_CANDIDATES = """
+MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL]->(known:Skill)
+MATCH (known)-[:CO_OCCURS_WITH]-(candidate:Skill)
+WHERE NOT (p)-[:HAS_SKILL]->(candidate)
+WITH p, candidate, count(DISTINCT known) AS overlap
+WHERE overlap >= $min_overlap
+RETURN candidate.name AS name, candidate.category AS category, overlap
+ORDER BY overlap DESC
+LIMIT $limit
+"""

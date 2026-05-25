@@ -37,6 +37,7 @@ def _collect_skills(extracted: dict) -> list[tuple[str, str]]:
         if isinstance(names, list):
             category = _CATEGORY_MAP.get(cat_key, "concept")
             for name in names:
+                name = name.strip() if name else ""
                 if name and name not in seen:
                     seen.add(name)
                     result.append((name, category))
@@ -44,6 +45,7 @@ def _collect_skills(extracted: dict) -> list[tuple[str, str]]:
     # Experience tech_stack — skills used on the job, often not in the main block
     for exp in extracted.get("experience", []):
         for name in exp.get("tech_stack", []):
+            name = name.strip() if name else ""
             if name and name not in seen:
                 seen.add(name)
                 result.append((name, "tool"))

@@ -12,7 +12,12 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\" -Directory)",
       "Bash(Select-Object Name)",
       "WebFetch(domain:memgraph.com)",
-      "WebFetch(domain:neo4j.com)"
+      "WebFetch(domain:neo4j.com)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\\\\firstknock\" -Recurse | Select-Object FullName | ForEach-Object { $_.FullName.Replace\\('C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\\\\', ''\\) } | Sort-Object)",
+      "Bash(.venv\\\\Scripts\\\\pip install *)",
+      "Bash(.venv\\\\Scripts\\\\python -m pytest tests/inference/test_seniority.py -v)",
+      "PowerShell(cd \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\"; $env:PYTHONIOENCODING=\"utf-8\"; .\\\\.venv\\\\Scripts\\\\python.exe scripts/normalize_skills.py 2>&1)",
+      "PowerShell(cd \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\"; $env:PYTHONIOENCODING=\"utf-8\"; .\\\\.venv\\\\Scripts\\\\python.exe scripts/test_phase3_graph.py \"docs/AI Intern - Aswinthraj.pdf\" iamaswinth@gmail.com 2>&1 | Select-String -Pattern \"inference_graph_implied|inference_written|llm_inference_complete|graph_write_complete|inference_complete\")"
     ]
   }
 }

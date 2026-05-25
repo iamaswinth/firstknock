@@ -1,239 +1,678 @@
-
-<h2 class="sr-only">FirstKnock complete system architecture — every pipeline stage from resume input to cold email output, click any component for implementation details</h2>
+<h2 class="sr-only">
+  FirstKnock complete system architecture — every pipeline stage from resume
+  input to cold email output, click any component for implementation details
+</h2>
 <style>
-.layer{border-radius:var(--border-radius-lg);border:0.5px solid var(--color-border-tertiary);background:var(--color-background-primary);overflow:hidden;margin-bottom:4px}
-.layer-head{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:0.5px solid var(--color-border-tertiary)}
-.layer-label{font-size:11px;font-weight:500;letter-spacing:.04em}
-.layer-sub{font-size:11px;color:var(--color-text-tertiary)}
-.comp-wrap{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px}
-.chip{padding:5px 11px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-tertiary);font-size:12px;cursor:pointer;color:var(--color-text-secondary);background:var(--color-background-primary);display:flex;align-items:center;gap:5px;transition:background .1s}
-.chip:hover{background:var(--color-background-secondary)}
-.chip.active{border-color:var(--color-border-secondary);background:var(--color-background-secondary);color:var(--color-text-primary)}
-.chip i{font-size:14px}
-.arrow{text-align:center;color:var(--color-text-tertiary);font-size:18px;line-height:1;margin:1px 0}
-.detail{border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-lg);padding:13px 16px;background:var(--color-background-primary);margin-top:10px;min-height:60px}
-.det-name{font-size:13px;font-weight:500;color:var(--color-text-primary);margin:0 0 4px}
-.det-body{font-size:13px;color:var(--color-text-secondary);line-height:1.6}
-.det-code{font-family:var(--font-mono);font-size:11px;background:var(--color-background-tertiary);border-radius:var(--border-radius-md);padding:8px 12px;margin-top:8px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--color-text-secondary)}
-.fork-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px}
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:500;margin-left:6px}
-.layer-num{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0}
+  .layer {
+    border-radius: var(--border-radius-lg);
+    border: 0.5px solid var(--color-border-tertiary);
+    background: var(--color-background-primary);
+    overflow: hidden;
+    margin-bottom: 4px;
+  }
+  .layer-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-bottom: 0.5px solid var(--color-border-tertiary);
+  }
+  .layer-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+  .layer-sub {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+  }
+  .comp-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .chip {
+    padding: 5px 11px;
+    border-radius: var(--border-radius-md);
+    border: 0.5px solid var(--color-border-tertiary);
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    background: var(--color-background-primary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.1s;
+  }
+  .chip:hover {
+    background: var(--color-background-secondary);
+  }
+  .chip.active {
+    border-color: var(--color-border-secondary);
+    background: var(--color-background-secondary);
+    color: var(--color-text-primary);
+  }
+  .chip i {
+    font-size: 14px;
+  }
+  .arrow {
+    text-align: center;
+    color: var(--color-text-tertiary);
+    font-size: 18px;
+    line-height: 1;
+    margin: 1px 0;
+  }
+  .detail {
+    border: 0.5px solid var(--color-border-secondary);
+    border-radius: var(--border-radius-lg);
+    padding: 13px 16px;
+    background: var(--color-background-primary);
+    margin-top: 10px;
+    min-height: 60px;
+  }
+  .det-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--color-text-primary);
+    margin: 0 0 4px;
+  }
+  .det-body {
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+  }
+  .det-code {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    background: var(--color-background-tertiary);
+    border-radius: var(--border-radius-md);
+    padding: 8px 12px;
+    margin-top: 8px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--color-text-secondary);
+  }
+  .fork-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 4px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .layer-num {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
 </style>
 
 <div id="arch"></div>
-<div id="det" class="detail" style="display:none"></div>
+<div id="det" class="detail" style="display: none"></div>
 
 <script>
-const A={
-  gray:  {acc:'#888780',bg:'#F1EFE8',tx:'#444441',lt:'#D3D1C7'},
-  teal:  {acc:'#1D9E75',bg:'#E1F5EE',tx:'#085041',lt:'#9FE1CB'},
-  purple:{acc:'#7F77DD',bg:'#EEEDFE',tx:'#3C3489',lt:'#CECBF6'},
-  coral: {acc:'#D85A30',bg:'#FAECE7',tx:'#712B13',lt:'#F5C4B3'},
-  amber: {acc:'#BA7517',bg:'#FAEEDA',tx:'#633806',lt:'#FAC775'},
-  blue:  {acc:'#378ADD',bg:'#E6F1FB',tx:'#0C447C',lt:'#B5D4F4'},
-  green: {acc:'#639922',bg:'#EAF3DE',tx:'#27500A',lt:'#C0DD97'},
-  pink:  {acc:'#D4537E',bg:'#FBEAF0',tx:'#72243E',lt:'#F4C0D1'},
-};
+  const A = {
+    gray: { acc: "#888780", bg: "#F1EFE8", tx: "#444441", lt: "#D3D1C7" },
+    teal: { acc: "#1D9E75", bg: "#E1F5EE", tx: "#085041", lt: "#9FE1CB" },
+    purple: { acc: "#7F77DD", bg: "#EEEDFE", tx: "#3C3489", lt: "#CECBF6" },
+    coral: { acc: "#D85A30", bg: "#FAECE7", tx: "#712B13", lt: "#F5C4B3" },
+    amber: { acc: "#BA7517", bg: "#FAEEDA", tx: "#633806", lt: "#FAC775" },
+    blue: { acc: "#378ADD", bg: "#E6F1FB", tx: "#0C447C", lt: "#B5D4F4" },
+    green: { acc: "#639922", bg: "#EAF3DE", tx: "#27500A", lt: "#C0DD97" },
+    pink: { acc: "#D4537E", bg: "#FBEAF0", tx: "#72243E", lt: "#F4C0D1" },
+  };
 
-const layers=[
-  {n:1,id:'input',label:'Input sources',color:'gray',sub:'accepts any resume format',
-   chips:[
-    {n:'PDF',i:'ti-file-type-pdf',d:'PyMuPDF + pdfplumber. Handles multi-column layouts, embedded fonts, scanned layers. Column detection prevents merging side-by-side sections.',c:''},
-    {n:'DOCX',i:'ti-file-type-doc',d:'python-docx. Preserves heading hierarchy and bullet nesting. Extracts tables (useful for skills grids).',c:''},
-    {n:'LinkedIn URL',i:'ti-brand-linkedin',d:'Proxycurl API — returns structured JSON with full profile, endorsement counts, recommendations, activity. ~$0.01/call.',c:''},
-    {n:'Image / scan',i:'ti-photo-scan',d:'GPT-4o Vision for complex layouts with graphics. Tesseract OCR for clean single-column scans. Fallback order: try Tesseract → if confidence <70%, escalate to GPT-4o.',c:''},
-    {n:'Plain text',i:'ti-align-left',d:'Direct paste or .txt upload. Normalize whitespace, fix encoding artifacts, detect section boundaries via keyword matching.',c:''},
-  ]},
-  {n:2,id:'norm',label:'Normalization',color:'teal',sub:'clean raw text before LLM',
-   chips:[
-    {n:'Strip artifacts',i:'ti-eraser',d:'Remove page numbers, headers/footers, watermarks, repeated company logos parsed as text. Remove PDF coordinate artifacts.',c:''},
-    {n:'Section boundary detection',i:'ti-layout-rows',d:'Keyword regex pass: SUMMARY, WORK EXPERIENCE, EDUCATION, PROJECTS, SKILLS, CERTIFICATIONS. Flags ambiguous boundaries for LLM to resolve.',c:''},
-    {n:'Language detection',i:'ti-language',d:'langdetect library — if non-English resume detected, prepend translation instruction to extraction prompt.',c:''},
-    {n:'URL extraction',i:'ti-link',d:'Regex extract all URLs before LLM pass. Store separately — LLM often drops or mangles URLs in extraction.',c:''},
-  ]},
-  {n:3,id:'llm',label:'LLM structured extraction',color:'purple',sub:'Claude / GPT-4o → strict JSON',
-   chips:[
-    {n:'Identity block',i:'ti-user',d:'name, email, phone, location, github, linkedin, website. If GitHub appears as "[Github]" text with no URL — flag as unresolved, attempt construction from email prefix.',c:''},
-    {n:'Experience[]',i:'ti-briefcase',d:'company, title, location, start_date (ISO), end_date (ISO or "Present"), description, bullets[], technologies_mentioned[]. Extract tech even from prose — "optimized the Postgres queries" → PostgreSQL.',c:`{
+  const layers = [
+    {
+      n: 1,
+      id: "input",
+      label: "Input sources",
+      color: "gray",
+      sub: "accepts any resume format",
+      chips: [
+        {
+          n: "PDF",
+          i: "ti-file-type-pdf",
+          d: "PyMuPDF + pdfplumber. Handles multi-column layouts, embedded fonts, scanned layers. Column detection prevents merging side-by-side sections.",
+          c: "",
+        },
+        {
+          n: "DOCX",
+          i: "ti-file-type-doc",
+          d: "python-docx. Preserves heading hierarchy and bullet nesting. Extracts tables (useful for skills grids).",
+          c: "",
+        },
+        {
+          n: "LinkedIn URL",
+          i: "ti-brand-linkedin",
+          d: "Proxycurl API — returns structured JSON with full profile, endorsement counts, recommendations, activity. ~$0.01/call.",
+          c: "",
+        },
+        {
+          n: "Image / scan",
+          i: "ti-photo-scan",
+          d: "GPT-4o Vision for complex layouts with graphics. Tesseract OCR for clean single-column scans. Fallback order: try Tesseract → if confidence <70%, escalate to GPT-4o.",
+          c: "",
+        },
+        {
+          n: "Plain text",
+          i: "ti-align-left",
+          d: "Direct paste or .txt upload. Normalize whitespace, fix encoding artifacts, detect section boundaries via keyword matching.",
+          c: "",
+        },
+      ],
+    },
+    {
+      n: 2,
+      id: "norm",
+      label: "Normalization",
+      color: "teal",
+      sub: "clean raw text before LLM",
+      chips: [
+        {
+          n: "Strip artifacts",
+          i: "ti-eraser",
+          d: "Remove page numbers, headers/footers, watermarks, repeated company logos parsed as text. Remove PDF coordinate artifacts.",
+          c: "",
+        },
+        {
+          n: "Section boundary detection",
+          i: "ti-layout-rows",
+          d: "Keyword regex pass: SUMMARY, WORK EXPERIENCE, EDUCATION, PROJECTS, SKILLS, CERTIFICATIONS. Flags ambiguous boundaries for LLM to resolve.",
+          c: "",
+        },
+        {
+          n: "Language detection",
+          i: "ti-language",
+          d: "langdetect library — if non-English resume detected, prepend translation instruction to extraction prompt.",
+          c: "",
+        },
+        {
+          n: "URL extraction",
+          i: "ti-link",
+          d: "Regex extract all URLs before LLM pass. Store separately — LLM often drops or mangles URLs in extraction.",
+          c: "",
+        },
+      ],
+    },
+    {
+      n: 3,
+      id: "llm",
+      label: "LLM structured extraction",
+      color: "purple",
+      sub: "Claude / GPT-4o → strict JSON",
+      chips: [
+        {
+          n: "Identity block",
+          i: "ti-user",
+          d: 'name, email, phone, location, github, linkedin, website. If GitHub appears as "[Github]" text with no URL — flag as unresolved, attempt construction from email prefix.',
+          c: "",
+        },
+        {
+          n: "Experience[]",
+          i: "ti-briefcase",
+          d: 'company, title, location, start_date (ISO), end_date (ISO or "Present"), description, bullets[], technologies_mentioned[]. Extract tech even from prose — "optimized the Postgres queries" → PostgreSQL.',
+          c: `{
   "company": "TechKareer",
   "title": "Software Engineering Intern",
   "start_date": "2026-01",
   "end_date": "Present",
   "bullets": [...],
   "technologies_mentioned": ["Google ADK","FastAPI","LangGraph"]
-}`},
-    {n:'Projects[]',i:'ti-code',d:'name, description, tech_stack[], github URL, demo URL. Preserve GitHub and demo links exactly — do not summarize.',c:''},
-    {n:'Skills',i:'ti-terminal',d:'Split into categories: languages[], ai_ml[], frontend[], backend[], databases[], devops[], tools[]. Raw strings — canonicalization happens in next stage.',c:''},
-    {n:'Education[]',i:'ti-school',d:'institution, degree, field, start, end, gpa (null if missing). Separate multiple degrees into array entries.',c:''},
-    {n:'Certifications[]',i:'ti-certificate',d:'name, issuer, date, expiry (null if not stated). Verify with regex — "AWS Certified" must have an issuer.',c:''},
-  ]},
-  {n:4,id:'resolve',label:'Entity resolution',color:'coral',sub:'normalize strings → canonical nodes',
-   chips:[
-    {n:'Skill canonicalization',i:'ti-arrows-exchange',d:'Alias table: "ReactJS"→"React", "k8s"→"Kubernetes", "Postgres"→"PostgreSQL", "NeonDB"→"Neon (PostgreSQL)". rapidfuzz for fuzzy matching at threshold 92.',c:'SKILL_ALIASES = {\n  "reactjs": "React",\n  "nodejs": "Node.js",\n  "k8s": "Kubernetes",\n  "postgres": "PostgreSQL"\n}'},
-    {n:'Company matching',i:'ti-building',d:'rapidfuzz against Crunchbase local index at threshold 88. If matched → enrich from Crunchbase. If not matched → create stub :Company node, queue website scrape.',c:''},
-    {n:'Date normalization',i:'ti-calendar',d:'"Jan 22" → 2022-01, "Present" → null (resolved at query time to today), "2019 – 2021" → start/end. Use dateparser library.',c:''},
-    {n:'Tech extraction from bullets',i:'ti-git-branch',d:'Second NLP pass on raw bullet points to extract tech not in the skills section. "Reduced load time using TanStack Query" → add TanStack Query to technologies_mentioned.',c:''},
-  ]},
-];
+}`,
+        },
+        {
+          n: "Projects[]",
+          i: "ti-code",
+          d: "name, description, tech_stack[], github URL, demo URL. Preserve GitHub and demo links exactly — do not summarize.",
+          c: "",
+        },
+        {
+          n: "Skills",
+          i: "ti-terminal",
+          d: "Split into categories: languages[], ai_ml[], frontend[], backend[], databases[], devops[], tools[]. Raw strings — canonicalization happens in next stage.",
+          c: "",
+        },
+        {
+          n: "Education[]",
+          i: "ti-school",
+          d: "institution, degree, field, start, end, gpa (null if missing). Separate multiple degrees into array entries.",
+          c: "",
+        },
+        {
+          n: "Certifications[]",
+          i: "ti-certificate",
+          d: 'name, issuer, date, expiry (null if not stated). Verify with regex — "AWS Certified" must have an issuer.',
+          c: "",
+        },
+      ],
+    },
+    {
+      n: 4,
+      id: "resolve",
+      label: "Entity resolution",
+      color: "coral",
+      sub: "normalize strings → canonical nodes",
+      chips: [
+        {
+          n: "Skill canonicalization",
+          i: "ti-arrows-exchange",
+          d: 'Alias table: "ReactJS"→"React", "k8s"→"Kubernetes", "Postgres"→"PostgreSQL", "NeonDB"→"Neon (PostgreSQL)". rapidfuzz for fuzzy matching at threshold 92.',
+          c: 'SKILL_ALIASES = {\n  "reactjs": "React",\n  "nodejs": "Node.js",\n  "k8s": "Kubernetes",\n  "postgres": "PostgreSQL"\n}',
+        },
+        {
+          n: "Company matching",
+          i: "ti-building",
+          d: "rapidfuzz against Crunchbase local index at threshold 88. If matched → enrich from Crunchbase. If not matched → create stub :Company node, queue website scrape.",
+          c: "",
+        },
+        {
+          n: "Date normalization",
+          i: "ti-calendar",
+          d: '"Jan 22" → 2022-01, "Present" → null (resolved at query time to today), "2019 – 2021" → start/end. Use dateparser library.',
+          c: "",
+        },
+        {
+          n: "Tech extraction from bullets",
+          i: "ti-git-branch",
+          d: 'Second NLP pass on raw bullet points to extract tech not in the skills section. "Reduced load time using TanStack Query" → add TanStack Query to technologies_mentioned.',
+          c: "",
+        },
+      ],
+    },
+  ];
 
-const forkLayers=[
-  {n:5,id:'postgres',label:'PostgreSQL — source of truth',color:'blue',sub:'write first, always',
-   chips:[
-    {n:'Raw JSON store',i:'ti-database',d:'INSERT extracted JSON before any enrichment. Columns: user_id, resume_id, raw_text, extracted_json, ingested_at, status. This is the recovery layer — if Memgraph goes down, rebuild graph from here.',c:`CREATE TABLE resumes (
+  const forkLayers = [
+    {
+      n: 5,
+      id: "postgres",
+      label: "PostgreSQL — source of truth",
+      color: "blue",
+      sub: "write first, always",
+      chips: [
+        {
+          n: "Raw JSON store",
+          i: "ti-database",
+          d: "INSERT extracted JSON before any enrichment. Columns: user_id, resume_id, raw_text, extracted_json, ingested_at, status. This is the recovery layer — if Memgraph goes down, rebuild graph from here.",
+          c: `CREATE TABLE resumes (
   resume_id  UUID PRIMARY KEY,
   user_id    UUID NOT NULL,
   raw_text   TEXT,
   extracted  JSONB,
   ingested_at TIMESTAMPTZ DEFAULT now(),
   graph_built BOOLEAN DEFAULT false
-);`},
-    {n:'Rebuild trigger',i:'ti-refresh',d:'On Memgraph cold start: SELECT * FROM resumes WHERE graph_built=true, replay each JSON through the graph writer. Idempotent — MERGE never duplicates.',c:''},
-  ]},
-  {n:5,id:'enrich',label:'Async enrichment workers',color:'coral',sub:'Celery + Redis, fires after Postgres write',
-   chips:[
-    {n:'GitHub API',i:'ti-brand-github',d:'Fetch repos, languages, commit frequency, README content. NLP README → extract domain, tech, complexity. Stars/forks as project quality signal.',c:'GET /users/{username}/repos\nGET /repos/{owner}/{repo}/languages\nGET /repos/{owner}/{repo}/readme'},
-    {n:'Company scraper',i:'ti-world',d:'Playwright headless — company website, tech stack from job postings, team size, industry. Crunchbase API for funding stage and valuation.',c:''},
-    {n:'Project demo crawl',i:'ti-external-link',d:'Crawl demo URLs — live status check, extract tech from page source (Vercel headers, Next.js meta, etc.), screenshot for UI classification.',c:''},
-    {n:'Institution lookup',i:'ti-school',d:'QS ranking API + known curriculum DB. University → standard CS curriculum → infer foundational: DSA, OS, Networks, DBMS at confidence 0.4.',c:''},
-  ]},
-];
+);`,
+        },
+        {
+          n: "Rebuild trigger",
+          i: "ti-refresh",
+          d: "On Memgraph cold start: SELECT * FROM resumes WHERE graph_built=true, replay each JSON through the graph writer. Idempotent — MERGE never duplicates.",
+          c: "",
+        },
+      ],
+    },
+    {
+      n: 5,
+      id: "enrich",
+      label: "Async enrichment workers",
+      color: "coral",
+      sub: "Celery + Redis, fires after Postgres write",
+      chips: [
+        {
+          n: "GitHub API",
+          i: "ti-brand-github",
+          d: "Fetch repos, languages, commit frequency, README content. NLP README → extract domain, tech, complexity. Stars/forks as project quality signal.",
+          c: "GET /users/{username}/repos\nGET /repos/{owner}/{repo}/languages\nGET /repos/{owner}/{repo}/readme",
+        },
+        {
+          n: "Company scraper",
+          i: "ti-world",
+          d: "Playwright headless — company website, tech stack from job postings, team size, industry. Crunchbase API for funding stage and valuation.",
+          c: "",
+        },
+        {
+          n: "Project demo crawl",
+          i: "ti-external-link",
+          d: "Crawl demo URLs — live status check, extract tech from page source (Vercel headers, Next.js meta, etc.), screenshot for UI classification.",
+          c: "",
+        },
+        {
+          n: "Institution lookup",
+          i: "ti-school",
+          d: "QS ranking API + known curriculum DB. University → standard CS curriculum → infer foundational: DSA, OS, Networks, DBMS at confidence 0.4.",
+          c: "",
+        },
+      ],
+    },
+  ];
 
-const layers2=[
-  {n:6,id:'infer',label:'Implicit inference engine',color:'amber',sub:'what the resume implies, not just what it says',
-   chips:[
-    {n:'Domain exposure rules',i:'ti-map',d:'Company industry → implied domain exposure. Cloud infra company → {AWS, K8s, IaC} at conf 0.65. Fintech → {compliance, KYC, PCI-DSS} at conf 0.60.',c:`DOMAIN_RULES = [{
+  const layers2 = [
+    {
+      n: 6,
+      id: "infer",
+      label: "Implicit inference engine",
+      color: "amber",
+      sub: "what the resume implies, not just what it says",
+      chips: [
+        {
+          n: "Domain exposure rules",
+          i: "ti-map",
+          d: "Company industry → implied domain exposure. Cloud infra company → {AWS, K8s, IaC} at conf 0.65. Fintech → {compliance, KYC, PCI-DSS} at conf 0.60.",
+          c: `DOMAIN_RULES = [{
   condition: lambda c: "cloud" in c.industry,
   infers: ["AWS","Kubernetes","IaC"],
   confidence: 0.65,
   reason: "worked at cloud company"
-}]`},
-    {n:'Skill adjacency rules',i:'ti-git-merge',d:'Explicit skill → adjacent implied skills. FastAPI → {asyncpg, pydantic, ASGI}. LangGraph → {agent state machines, tool calling, retry logic}. Confidence 0.50–0.80.',c:''},
-    {n:'Project implication rules',i:'ti-bulb',d:'Voice agent project → {WebRTC, VAD, audio chunking, streaming UX}. RAG platform → {hybrid search, reranker pipeline, BM25}. Confidence 0.60–0.85.',c:''},
-    {n:'Seniority inference',i:'ti-trending-up',d:'(title contains lead/senior) + tenure > 2y + solo-shipped project → senior tag. Feeds job matching tier filter.',c:''},
-    {n:'Confidence scoring',i:'ti-adjustments',d:'explicit=1.0 · project-implied=0.60-0.85 · company-domain=0.65 · skill-adjacency=0.50-0.80 · curriculum=0.40. Stored on HAS_SKILL edge.',c:''},
-  ]},
-  {n:7,id:'embed',label:'Embedding generation',color:'purple',sub:'vectors stored directly on graph nodes',
-   chips:[
-    {n:'Per-section embeddings',i:'ti-vector',d:'One embedding per: full resume summary, each job block, each project, skill cluster groups (AI/ML separate from Backend separate from DevOps). text-embedding-3-small.',c:''},
-    {n:'Stored on nodes',i:'ti-database',d:'embedding property on :Person, :Project, :Job nodes. Queried via Memgraph VECTOR INDEX — no separate Pinecone needed.',c:`CREATE VECTOR INDEX person_emb
+}]`,
+        },
+        {
+          n: "Skill adjacency rules",
+          i: "ti-git-merge",
+          d: "Explicit skill → adjacent implied skills. FastAPI → {asyncpg, pydantic, ASGI}. LangGraph → {agent state machines, tool calling, retry logic}. Confidence 0.50–0.80.",
+          c: "",
+        },
+        {
+          n: "Project implication rules",
+          i: "ti-bulb",
+          d: "Voice agent project → {WebRTC, VAD, audio chunking, streaming UX}. RAG platform → {hybrid search, reranker pipeline, BM25}. Confidence 0.60–0.85.",
+          c: "",
+        },
+        {
+          n: "Seniority inference",
+          i: "ti-trending-up",
+          d: "(title contains lead/senior) + tenure > 2y + solo-shipped project → senior tag. Feeds job matching tier filter.",
+          c: "",
+        },
+        {
+          n: "Confidence scoring",
+          i: "ti-adjustments",
+          d: "explicit=1.0 · project-implied=0.60-0.85 · company-domain=0.65 · skill-adjacency=0.50-0.80 · curriculum=0.40. Stored on HAS_SKILL edge.",
+          c: "",
+        },
+      ],
+    },
+    {
+      n: 7,
+      id: "embed",
+      label: "Embedding generation",
+      color: "purple",
+      sub: "vectors stored directly on graph nodes",
+      chips: [
+        {
+          n: "Per-section embeddings",
+          i: "ti-vector",
+          d: "One embedding per: full resume summary, each job block, each project, skill cluster groups (AI/ML separate from Backend separate from DevOps). text-embedding-3-small.",
+          c: "",
+        },
+        {
+          n: "Stored on nodes",
+          i: "ti-database",
+          d: "embedding property on :Person, :Project, :Job nodes. Queried via Memgraph VECTOR INDEX — no separate Pinecone needed.",
+          c: `CREATE VECTOR INDEX person_emb
 ON :Person(embedding)
-WITH CONFIG {"dimension": 1536, "metric": "cosine"};`},
-  ]},
-  {n:8,id:'graph',label:'Memgraph graph write',color:'green',sub:'single shared instance · all users · WAL + snapshots',
-   chips:[
-    {n:':Person (user-specific)',i:'ti-user-circle',d:'MERGE on email. Properties: user_id, name, email, location, seniority, embedding, ingested_at. user_id index mandatory.',c:`MERGE (p:Person {email: $email})
+WITH CONFIG {"dimension": 1536, "metric": "cosine"};`,
+        },
+      ],
+    },
+    {
+      n: 8,
+      id: "graph",
+      label: "Memgraph graph write",
+      color: "green",
+      sub: "single shared instance · all users · WAL + snapshots",
+      chips: [
+        {
+          n: ":Person (user-specific)",
+          i: "ti-user-circle",
+          d: "MERGE on email. Properties: user_id, name, email, location, seniority, embedding, ingested_at. user_id index mandatory.",
+          c: `MERGE (p:Person {email: $email})
 SET p.user_id = $userId,
     p.name = $name,
     p.embedding = $embedding,
     p.seniority = $seniority,
-    p.ingested_at = timestamp()`},
-    {n:':Skill (global shared)',i:'ti-tag',d:'No user_id — shared across ALL users. One node per canonical skill name. If 1000 users know Python, one :Skill node with 1000 HAS_SKILL edges pointing to it.',c:'MERGE (s:Skill {name: $skillName})'},
-    {n:':Company (global shared)',i:'ti-building',d:'Shared across users who worked there. Enriched once — size, industry, tech_stack, funding_stage, hq_location.',c:'MERGE (c:Company {name: $name})\nSET c.industry = $industry,\n    c.size = $size'},
-    {n:'HAS_SKILL edge',i:'ti-arrows-right',d:'The core inference edge. Properties: confidence (0.0–1.0), source ("explicit"/"inferred"), reason (text explaining inference), created_at.',c:`MERGE (p)-[r:HAS_SKILL]->(s)
+    p.ingested_at = timestamp()`,
+        },
+        {
+          n: ":Skill (global shared)",
+          i: "ti-tag",
+          d: "No user_id — shared across ALL users. One node per canonical skill name. If 1000 users know Python, one :Skill node with 1000 HAS_SKILL edges pointing to it.",
+          c: "MERGE (s:Skill {name: $skillName})",
+        },
+        {
+          n: ":Company (global shared)",
+          i: "ti-building",
+          d: "Shared across users who worked there. Enriched once — size, industry, tech_stack, funding_stage, hq_location.",
+          c: "MERGE (c:Company {name: $name})\nSET c.industry = $industry,\n    c.size = $size",
+        },
+        {
+          n: "HAS_SKILL edge",
+          i: "ti-arrows-right",
+          d: 'The core inference edge. Properties: confidence (0.0–1.0), source ("explicit"/"inferred"), reason (text explaining inference), created_at.',
+          c: `MERGE (p)-[r:HAS_SKILL]->(s)
 SET r.confidence = $confidence,
     r.source = $source,
-    r.reason = $reason`},
-    {n:'WAL + snapshots',i:'ti-device-floppy',d:'snapshot every 300s, retain 3 snapshots, WAL on every write, mounted Docker volume. Loses max 5 min on crash. Rebuild from PostgreSQL on catastrophic failure.',c:`--storage-snapshot-interval-sec=300
+    r.reason = $reason`,
+        },
+        {
+          n: "WAL + snapshots",
+          i: "ti-device-floppy",
+          d: "snapshot every 300s, retain 3 snapshots, WAL on every write, mounted Docker volume. Loses max 5 min on crash. Rebuild from PostgreSQL on catastrophic failure.",
+          c: `--storage-snapshot-interval-sec=300
 --storage-snapshot-retention-count=3
 --storage-wal-enabled=true
---data-directory=/var/lib/memgraph`},
-    {n:'Indexes',i:'ti-list-search',d:'Create on startup — mandatory for query performance across thousands of users.',c:`CREATE INDEX ON :Person(user_id);
+--data-directory=/var/lib/memgraph`,
+        },
+        {
+          n: "Indexes",
+          i: "ti-list-search",
+          d: "Create on startup — mandatory for query performance across thousands of users.",
+          c: `CREATE INDEX ON :Person(user_id);
 CREATE INDEX ON :Person(email);
 CREATE INDEX ON :Skill(name);
 CREATE INDEX ON :Company(name);
-CREATE INDEX ON :Job(id);`},
-  ]},
-  {n:9,id:'query',label:'Query layer',color:'teal',sub:'Cypher traversal · no GDS license needed',
-   chips:[
-    {n:'Job matching',i:'ti-target',d:'Traverse person→skills→jobs. Sum confidence scores. Works on both explicit (conf=1.0) and inferred (conf=0.5–0.85) edges automatically.',c:`MATCH (p:Person {user_id:$uid})
+CREATE INDEX ON :Job(id);`,
+        },
+      ],
+    },
+    {
+      n: 9,
+      id: "query",
+      label: "Query layer",
+      color: "teal",
+      sub: "Cypher traversal · no GDS license needed",
+      chips: [
+        {
+          n: "Job matching",
+          i: "ti-target",
+          d: "Traverse person→skills→jobs. Sum confidence scores. Works on both explicit (conf=1.0) and inferred (conf=0.5–0.85) edges automatically.",
+          c: `MATCH (p:Person {user_id:$uid})
       -[r:HAS_SKILL]->(s:Skill)
       <-[:REQUIRES]-(j:Job)
 RETURN j.title, j.company,
   sum(r.confidence) AS score,
   collect({skill:s.name,src:r.source}) AS matched
-ORDER BY score DESC LIMIT 20`},
-    {n:'Explanation path',i:'ti-route',d:'shortestPath between person and job — surfaces the reasoning chain shown to user. "Matched because: Mind Surf → Pinecone → Hybrid search → required by job".',c:`MATCH path = shortestPath(
+ORDER BY score DESC LIMIT 20`,
+        },
+        {
+          n: "Explanation path",
+          i: "ti-route",
+          d: 'shortestPath between person and job — surfaces the reasoning chain shown to user. "Matched because: Mind Surf → Pinecone → Hybrid search → required by job".',
+          c: `MATCH path = shortestPath(
   (p:Person {user_id:$uid})-[*1..4]-(j:Job {id:$jid})
 )
-RETURN [n IN nodes(path)|n.name] AS chain`},
-    {n:'Vector semantic match',i:'ti-eye',d:'Semantic fallback — finds jobs similar in embedding space even with zero skill overlap. Catches domain matches that structural traversal misses.',c:`CALL vector_search.get_closest(
+RETURN [n IN nodes(path)|n.name] AS chain`,
+        },
+        {
+          n: "Vector semantic match",
+          i: "ti-eye",
+          d: "Semantic fallback — finds jobs similar in embedding space even with zero skill overlap. Catches domain matches that structural traversal misses.",
+          c: `CALL vector_search.get_closest(
   :Job, personEmbedding, 20,
   {similarityCutoff: 0.75}
-) YIELD node, score`},
-    {n:'Skill gap query',i:'ti-chart-bar',d:'Find skills required by job but missing from person graph — returns learning path suggestions.',c:`MATCH (j:Job {id:$jid})-[:REQUIRES]->(s:Skill)
+) YIELD node, score`,
+        },
+        {
+          n: "Skill gap query",
+          i: "ti-chart-bar",
+          d: "Find skills required by job but missing from person graph — returns learning path suggestions.",
+          c: `MATCH (j:Job {id:$jid})-[:REQUIRES]->(s:Skill)
 WHERE NOT EXISTS(
   (:Person {user_id:$uid})-[:HAS_SKILL]->(s))
-RETURN s.name AS missingSkill`},
-  ]},
-  {n:10,id:'api',label:'FastAPI orchestrator',color:'gray',sub:'coordinates all stages · async-first',
-   chips:[
-    {n:'POST /ingest',i:'ti-upload',d:'Stages 1–4 run sync (returns in <3s). PostgreSQL write sync. Enrichment + inference fire async via Celery. Returns {resume_id, person_id, status:"processing"}.',c:''},
-    {n:'GET /matches/{id}',i:'ti-search',d:'Run job matching Cypher + vector similarity. Merge scores (0.6×graph + 0.4×vector). Return top 20 with explanation paths.',c:''},
-    {n:'POST /email/draft',i:'ti-mail',d:'Pull person subgraph + company data. Build context prompt. Call Claude API (claude-sonnet-4-6). Return structured draft with hook, body, ask.',c:`context = {
+RETURN s.name AS missingSkill`,
+        },
+      ],
+    },
+    {
+      n: 10,
+      id: "api",
+      label: "FastAPI orchestrator",
+      color: "gray",
+      sub: "coordinates all stages · async-first",
+      chips: [
+        {
+          n: "POST /ingest",
+          i: "ti-upload",
+          d: 'Stages 1–4 run sync (returns in <3s). PostgreSQL write sync. Enrichment + inference fire async via Celery. Returns {resume_id, person_id, status:"processing"}.',
+          c: "",
+        },
+        {
+          n: "GET /matches/{id}",
+          i: "ti-search",
+          d: "Run job matching Cypher + vector similarity. Merge scores (0.6×graph + 0.4×vector). Return top 20 with explanation paths.",
+          c: "",
+        },
+        {
+          n: "POST /email/draft",
+          i: "ti-mail",
+          d: "Pull person subgraph + company data. Build context prompt. Call Claude API (claude-sonnet-4-6). Return structured draft with hook, body, ask.",
+          c: `context = {
   person: graph_context,
   company: scraped_data,
   shared_signals: overlap
 }
-# → Claude generates cold email`},
-    {n:'GET /graph/{id}',i:'ti-chart-dots',d:'Return person subgraph for frontend visualization. Nodes + relationships + confidence scores. Powers the interactive graph view in the UI.',c:''},
-  ]},
-  {n:11,id:'output',label:'Output — FirstKnock UI',color:'pink',sub:'what the user actually sees',
-   chips:[
-    {n:'Ranked job matches',i:'ti-list-numbers',d:'title, company, match score, explicit vs inferred skill breakdown, "why matched" explanation chain, apply link.',c:''},
-    {n:'Cold email draft',i:'ti-send',d:'Personalized to founder/CTO. Hook from their recent work (scraped). Relevant skill surface from graph match. Single clear ask. Editable before send.',c:''},
-    {n:'"Why matched" card',i:'ti-info-circle',d:'Visual path through the graph: "Gemini Live API → Voice Activity Detection (inferred, 0.70) → required by Voice AI Engineer role at Livekit".',c:''},
-    {n:'Skill gap report',i:'ti-chart-bar',d:'Skills required by top jobs but absent from your graph. Ordered by job match frequency. Each gap links to a learning resource.',c:''},
-  ]},
-];
+# → Claude generates cold email`,
+        },
+        {
+          n: "GET /graph/{id}",
+          i: "ti-chart-dots",
+          d: "Return person subgraph for frontend visualization. Nodes + relationships + confidence scores. Powers the interactive graph view in the UI.",
+          c: "",
+        },
+      ],
+    },
+    {
+      n: 11,
+      id: "output",
+      label: "Output — FirstKnock UI",
+      color: "pink",
+      sub: "what the user actually sees",
+      chips: [
+        {
+          n: "Ranked job matches",
+          i: "ti-list-numbers",
+          d: 'title, company, match score, explicit vs inferred skill breakdown, "why matched" explanation chain, apply link.',
+          c: "",
+        },
+        {
+          n: "Cold email draft",
+          i: "ti-send",
+          d: "Personalized to founder/CTO. Hook from their recent work (scraped). Relevant skill surface from graph match. Single clear ask. Editable before send.",
+          c: "",
+        },
+        {
+          n: '"Why matched" card',
+          i: "ti-info-circle",
+          d: 'Visual path through the graph: "Gemini Live API → Voice Activity Detection (inferred, 0.70) → required by Voice AI Engineer role at Livekit".',
+          c: "",
+        },
+        {
+          n: "Skill gap report",
+          i: "ti-chart-bar",
+          d: "Skills required by top jobs but absent from your graph. Ordered by job match frequency. Each gap links to a learning resource.",
+          c: "",
+        },
+      ],
+    },
+  ];
 
-const arch=document.getElementById('arch');
+  const arch = document.getElementById("arch");
 
-function makeChips(chips,color){
-  const c=A[color];
-  return chips.map(ch=>`
-    <button class="chip" onclick="showDet(this,'${esc(ch.n)}','${esc(ch.d)}',\`${esc(ch.c||'')}\`,'${color}')" title="${esc(ch.n)}">
+  function makeChips(chips, color) {
+    const c = A[color];
+    return chips
+      .map(
+        (ch) => `
+    <button class="chip" onclick="showDet(this,'${esc(ch.n)}','${esc(ch.d)}',\`${esc(ch.c || "")}\`,'${color}')" title="${esc(ch.n)}">
       <i class="ti ${ch.i}" aria-hidden="true"></i>${esc(ch.n)}
-    </button>`).join('');
-}
+    </button>`,
+      )
+      .join("");
+  }
 
-function makeLayer(l){
-  const c=A[l.color];
-  return `<div class="layer" style="border-left:3px solid ${c.acc}">
+  function makeLayer(l) {
+    const c = A[l.color];
+    return `<div class="layer" style="border-left:3px solid ${c.acc}">
     <div class="layer-head" style="background:${c.bg}">
       <span class="layer-num" style="background:${c.lt};color:${c.tx}">${l.n}</span>
       <span class="layer-label" style="color:${c.tx}">${l.label}</span>
       <span class="layer-sub">${l.sub}</span>
     </div>
-    <div class="comp-wrap">${makeChips(l.chips,l.color)}</div>
+    <div class="comp-wrap">${makeChips(l.chips, l.color)}</div>
   </div>`;
-}
+  }
 
-function arrowDiv(){return `<div class="arrow">↓</div>`;}
+  function arrowDiv() {
+    return `<div class="arrow">↓</div>`;
+  }
 
-let html='';
-layers.forEach((l,i)=>{html+=makeLayer(l);html+=arrowDiv();});
+  let html = "";
+  layers.forEach((l, i) => {
+    html += makeLayer(l);
+    html += arrowDiv();
+  });
 
-html+=`<div class="fork-row">
+  html += `<div class="fork-row">
   <div>${makeLayer(forkLayers[0])}</div>
   <div>${makeLayer(forkLayers[1])}</div>
 </div>`;
-html+=arrowDiv();
+  html += arrowDiv();
 
-layers2.forEach((l,i)=>{html+=makeLayer(l);if(i<layers2.length-1)html+=arrowDiv();});
+  layers2.forEach((l, i) => {
+    html += makeLayer(l);
+    if (i < layers2.length - 1) html += arrowDiv();
+  });
 
-arch.innerHTML=html;
+  arch.innerHTML = html;
 
-function esc(s){return (s||'').replace(/`/g,'\\`').replace(/'/g,"\\'");}
+  function esc(s) {
+    return (s || "").replace(/`/g, "\\`").replace(/'/g, "\\'");
+  }
 
-function showDet(btn,name,desc,code,color){
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
-  btn.classList.add('active');
-  const c=A[color];
-  const det=document.getElementById('det');
-  det.style.display='block';
-  det.style.borderColor=c.acc+'55';
-  det.innerHTML=`<div class="det-name" style="color:${c.tx}">${name}</div>
+  function showDet(btn, name, desc, code, color) {
+    document
+      .querySelectorAll(".chip")
+      .forEach((c) => c.classList.remove("active"));
+    btn.classList.add("active");
+    const c = A[color];
+    const det = document.getElementById("det");
+    det.style.display = "block";
+    det.style.borderColor = c.acc + "55";
+    det.innerHTML = `<div class="det-name" style="color:${c.tx}">${name}</div>
     <div class="det-body">${desc}</div>
-    ${code?`<div class="det-code">${code}</div>`:''}`;
-}
+    ${code ? `<div class="det-code">${code}</div>` : ""}`;
+  }
 </script>

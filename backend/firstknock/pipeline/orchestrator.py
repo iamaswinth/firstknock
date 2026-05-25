@@ -70,6 +70,16 @@ async def run_sync_ingestion(
     except Exception as exc:
         logger.warning("graph_write_failed", resume_id=str(resume_id), error=str(exc))
 
+    # Stage 7 — Inference Engine: infer implied skills + write seniority (non-fatal)
+    inferred_count = 0
+    if graph_written:
+        try:
+            from firstknock.pipeline.inference.engine import run_inference
+            inferred_count = await run_inference(str(user_id))
+            logger.info("inference_complete", person_id=str(user_id), inferred=inferred_count)
+        except Exception as exc:
+            logger.warning("inference_failed", person_id=str(user_id), error=str(exc))
+
     return {
         "user_id": user_id,
         "resume_id": resume_id,
@@ -88,4 +98,5 @@ async def run_sync_ingestion(
         "canonical_skill_count": canonical_skill_count,
         "status": "extracted",
         "graph_written": graph_written,
+        "inferred_skills": inferred_count,
     }
