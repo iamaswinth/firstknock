@@ -17,7 +17,11 @@
       "Bash(.venv\\\\Scripts\\\\pip install *)",
       "Bash(.venv\\\\Scripts\\\\python -m pytest tests/inference/test_seniority.py -v)",
       "PowerShell(cd \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\"; $env:PYTHONIOENCODING=\"utf-8\"; .\\\\.venv\\\\Scripts\\\\python.exe scripts/normalize_skills.py 2>&1)",
-      "PowerShell(cd \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\"; $env:PYTHONIOENCODING=\"utf-8\"; .\\\\.venv\\\\Scripts\\\\python.exe scripts/test_phase3_graph.py \"docs/AI Intern - Aswinthraj.pdf\" iamaswinth@gmail.com 2>&1 | Select-String -Pattern \"inference_graph_implied|inference_written|llm_inference_complete|graph_write_complete|inference_complete\")"
+      "PowerShell(cd \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\"; $env:PYTHONIOENCODING=\"utf-8\"; .\\\\.venv\\\\Scripts\\\\python.exe scripts/test_phase3_graph.py \"docs/AI Intern - Aswinthraj.pdf\" iamaswinth@gmail.com 2>&1 | Select-String -Pattern \"inference_graph_implied|inference_written|llm_inference_complete|graph_write_complete|inference_complete\")",
+      "PowerShell(cd \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\"; $env:PYTHONIOENCODING=\"utf-8\"; .\\\\.venv\\\\Scripts\\\\python.exe scripts/test_phase3_graph.py \"docs/AI Intern - Aswinthraj.pdf\" iamaswinth@gmail.com 2>&1 | Select-String -Pattern \"enrichment_dispatched|enrichment_dispatch_failed|inference_complete|graph_write_complete\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\" -Recurse -Directory)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\" -Recurse -Directory -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 50)"
     ]
   }
 }

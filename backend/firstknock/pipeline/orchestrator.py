@@ -80,6 +80,46 @@ async def run_sync_ingestion(
         except Exception as exc:
             logger.warning("inference_failed", person_id=str(user_id), error=str(exc))
 
+    # Stage 8 — Async Enrichment: dispatch Celery tasks (non-blocking, non-fatal)
+    enrichment_dispatched = False
+    if graph_written:
+        try:
+            from firstknock.pipeline.enrichment.tasks import dispatch_enrichment
+
+            # Collect inputs for each enricher
+            identity = raw_dump.get("identity", {})
+            github_url = identity.get("github_url", "")
+            linkedin_url = identity.get("linkedin_url", "")
+
+            company_names = [e["company"] for e in raw_dump.get("experience", []) if e.get("company")]
+            institution_names = [e["institution"] for e in raw_dump.get("education", []) if e.get("institution")]
+
+            existing_projects = [
+                {"project_id": str(__import__("uuid").uuid5(__import__("uuid").NAMESPACE_URL, f"{user_id}:{p['name']}")),
+                 "name": p["name"],
+                 "github_url": p.get("github_url", "")}
+                for p in raw_dump.get("projects", [])
+            ]
+
+            all_skills = [
+                s for cat in raw_dump.get("skills", {}).values()
+                if isinstance(cat, list) for s in cat
+            ]
+
+            dispatch_enrichment(
+                resume_id=str(resume_id),
+                person_id=str(user_id),
+                github_url=github_url,
+                linkedin_url=linkedin_url,
+                existing_projects=existing_projects,
+                company_names=company_names,
+                institution_names=institution_names,
+                explicit_skills=all_skills,
+            )
+            enrichment_dispatched = True
+        except Exception as exc:
+            logger.warning("enrichment_dispatch_failed", resume_id=str(resume_id), error=str(exc))
+
     return {
         "user_id": user_id,
         "resume_id": resume_id,
@@ -99,4 +139,5 @@ async def run_sync_ingestion(
         "status": "extracted",
         "graph_written": graph_written,
         "inferred_skills": inferred_count,
+        "enrichment_dispatched": enrichment_dispatched,
     }

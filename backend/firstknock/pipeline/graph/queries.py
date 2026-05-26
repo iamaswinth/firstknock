@@ -145,3 +145,60 @@ RETURN candidate.name AS name, candidate.category AS category, overlap
 ORDER BY overlap DESC
 LIMIT $limit
 """
+
+# ── Phase 5: Enrichment queries ───────────────────────────────────────────────
+
+SET_PROJECT_ENRICHMENT = """
+MATCH (proj:Project {project_id: $project_id})
+SET proj.stars = $stars,
+    proj.forks = $forks,
+    proj.primary_language = $primary_language,
+    proj.last_pushed = $last_pushed,
+    proj.description = $description
+"""
+
+MERGE_PINNED_PROJECT = """
+MERGE (proj:Project {project_id: $project_id})
+ON CREATE SET proj.name = $name,
+              proj.description = $description,
+              proj.github_url = $github_url,
+              proj.stars = $stars,
+              proj.forks = $forks,
+              proj.primary_language = $primary_language,
+              proj.source = 'github_pinned'
+ON MATCH SET  proj.stars = $stars,
+              proj.forks = $forks,
+              proj.primary_language = $primary_language
+WITH proj
+MATCH (p:Person {person_id: $person_id})
+MERGE (p)-[:BUILT]->(proj)
+"""
+
+MERGE_PROJECT_TOPIC_SKILL = """
+MATCH (proj:Project {project_id: $project_id})
+MERGE (s:Skill {name: $name})
+ON CREATE SET s.category = $category
+MERGE (proj)-[r:USES]->(s)
+ON CREATE SET r.confidence = 1.0
+"""
+
+SET_COMPANY_ENRICHMENT = """
+MATCH (c:Company {name: $name})
+SET c.stage = $stage,
+    c.industry = $industry,
+    c.headcount = $headcount,
+    c.founded = $founded,
+    c.headquarters = $headquarters
+"""
+
+SET_INSTITUTION_TIER = """
+MATCH (i:Institution {name: $name})
+SET i.ranking_tier = $ranking_tier
+"""
+
+SET_PERSON_GITHUB_STATS = """
+MATCH (p:Person {person_id: $person_id})
+SET p.github_followers = $followers,
+    p.public_repos = $public_repos
+"""
+

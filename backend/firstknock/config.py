@@ -9,8 +9,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
 
     # External data (optional — pipeline degrades gracefully without them)
-    proxycurl_api_key: str = ""
-    crunchbase_api_key: str = ""
+    perplexity_api_key: str = ""
     github_token: str = ""
 
     # Databases
