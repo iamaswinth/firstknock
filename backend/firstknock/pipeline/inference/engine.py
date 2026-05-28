@@ -5,15 +5,12 @@ from langgraph.graph import StateGraph, START, END
 
 from firstknock.pipeline.graph.client import get_driver
 from firstknock.pipeline.graph.queries import (
-    DELETE_STALE_INFERRED_SKILLS,
     GET_EXPLICIT_SKILLS,
     GET_GRAPH_IMPLIED_SKILLS,
-    MERGE_INFERRED_HAS_SKILL,
     MERGE_SKILL_IMPLIES,
     ADAMIC_ADAR_CANDIDATES,
 )
 from firstknock.pipeline.inference.llm_infer import infer_skills_from_llm
-from firstknock.pipeline.inference.seniority import write_seniority
 from firstknock.config import settings
 
 logger = structlog.get_logger()
@@ -33,7 +30,7 @@ class InferenceState(TypedDict):
     llm_inferred: list[dict]      # [{name, category, confidence, reason, inferred_from}]
     aa_candidates: list[dict]     # [{name, category, overlap}]
     to_write: list[dict]          # merged final list with source tag
-    written_count: int
+    inferred_result: dict         # assembled result saved to Postgres
 
 
 # ── Nodes ─────────────────────────────────────────────────────────────────────
@@ -125,20 +122,10 @@ async def merge_and_filter(state: InferenceState) -> InferenceState:
 
 
 async def write_inferred(state: InferenceState) -> InferenceState:
+    """Write only global SKILL_IMPLIES edges to Memgraph. Per-person inferred skills go to Postgres via build_result."""
     driver = await get_driver()
     async with driver.session(database="memgraph") as session:
-        await session.run(DELETE_STALE_INFERRED_SKILLS, person_id=state["user_id"])
         for skill in state["to_write"]:
-            await session.run(
-                MERGE_INFERRED_HAS_SKILL,
-                person_id=state["user_id"],
-                name=skill["name"],
-                category=skill["category"],
-                confidence=skill["confidence"],
-                inferred_by=skill.get("inferred_from", ""),
-                reason=skill.get("reason", ""),
-            )
-            # Write SKILL_IMPLIES only for LLM-sourced inferences with a traceable source skill
             if skill.get("source") == "llm" and skill.get("inferred_from"):
                 await session.run(
                     MERGE_SKILL_IMPLIES,
@@ -147,15 +134,27 @@ async def write_inferred(state: InferenceState) -> InferenceState:
                     confidence=skill["confidence"],
                     reason=skill.get("reason", ""),
                 )
-    state["written_count"] = len(state["to_write"])
-    logger.info("inference_written", person_id=state["user_id"], count=state["written_count"])
+    implies_count = sum(1 for s in state["to_write"] if s.get("source") == "llm" and s.get("inferred_from"))
+    logger.info("inference_skill_implies_written", person_id=state["user_id"], count=implies_count)
     return state
 
 
-async def write_seniority_node(state: InferenceState) -> InferenceState:
-    driver = await get_driver()
-    async with driver.session(database="memgraph") as session:
-        await write_seniority(session, state["user_id"])
+async def build_result(state: InferenceState) -> InferenceState:
+    """Assemble inferred_result dict to be saved to Postgres by the orchestrator."""
+    state["inferred_result"] = {
+        "skills": [
+            {
+                "name": s["name"],
+                "category": s["category"],
+                "confidence": s["confidence"],
+                "source": s.get("source", ""),
+                "inferred_by": s.get("inferred_from", ""),
+                "reason": s.get("reason", ""),
+            }
+            for s in state["to_write"]
+        ]
+    }
+    logger.info("inference_result_built", person_id=state["user_id"], count=len(state["inferred_result"]["skills"]))
     return state
 
 
@@ -176,7 +175,7 @@ def _build_graph():
     g.add_node("adamic_adar",      adamic_adar)
     g.add_node("merge_and_filter", merge_and_filter)
     g.add_node("write_inferred",   write_inferred)
-    g.add_node("write_seniority",  write_seniority_node)
+    g.add_node("build_result",     build_result)
 
     g.add_edge(START, "fetch_skills")
     g.add_conditional_edges(
@@ -188,8 +187,8 @@ def _build_graph():
     g.add_edge("llm_infer",        "adamic_adar")
     g.add_edge("adamic_adar",      "merge_and_filter")
     g.add_edge("merge_and_filter", "write_inferred")
-    g.add_edge("write_inferred",   "write_seniority")
-    g.add_edge("write_seniority",  END)
+    g.add_edge("write_inferred",   "build_result")
+    g.add_edge("build_result",     END)
 
     return g.compile()
 
@@ -197,8 +196,8 @@ def _build_graph():
 _graph = _build_graph()
 
 
-async def run_inference(user_id: str) -> int:
-    """Run the full inference pipeline for one person. Returns count of inferred edges written."""
+async def run_inference(user_id: str) -> dict:
+    """Run the full inference pipeline for one person. Returns inferred_result dict."""
     _setup_langsmith()
 
     initial: InferenceState = {
@@ -208,8 +207,8 @@ async def run_inference(user_id: str) -> int:
         "llm_inferred": [],
         "aa_candidates": [],
         "to_write": [],
-        "written_count": 0,
+        "inferred_result": {},
     }
 
     final = await _graph.ainvoke(initial)
-    return final["written_count"]
+    return final["inferred_result"]

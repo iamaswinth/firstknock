@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     # External data (optional — pipeline degrades gracefully without them)
     perplexity_api_key: str = ""
     github_token: str = ""
+    apify_api_key: str = ""
 
     # Databases
     postgres_url: str = "postgresql+asyncpg://firstknock:firstknock@localhost:5432/firstknock"

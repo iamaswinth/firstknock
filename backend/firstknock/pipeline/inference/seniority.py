@@ -4,6 +4,10 @@ from firstknock.pipeline.graph.queries import GET_TOTAL_EXPERIENCE_MONTHS, SET_P
 logger = structlog.get_logger()
 
 
+def compute_total_experience_months(experience_list: list[dict]) -> int:
+    return sum(int(exp.get("months") or 0) for exp in experience_list)
+
+
 def compute_seniority(total_months: int) -> str:
     if total_months < 12:
         return "junior"

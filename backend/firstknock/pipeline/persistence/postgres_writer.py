@@ -60,6 +60,20 @@ async def update_resume_status(
             resume.error_message = error_message
 
 
+async def save_inferred_data(resume_id: uuid.UUID, inferred_json: dict) -> None:
+    async with get_session() as session:
+        result = await session.execute(select(Resume).where(Resume.resume_id == resume_id))
+        resume = result.scalar_one()
+        resume.inferred_json = inferred_json
+        resume.updated_at = _now()
+
+
+async def get_resume_by_id(resume_id: uuid.UUID) -> Resume:
+    async with get_session() as session:
+        result = await session.execute(select(Resume).where(Resume.resume_id == resume_id))
+        return result.scalar_one()
+
+
 async def save_enrichment_data(resume_id: uuid.UUID, enriched_json: dict) -> None:
     async with get_session() as session:
         result = await session.execute(select(Resume).where(Resume.resume_id == resume_id))
@@ -75,6 +89,13 @@ async def mark_graph_built(resume_id: uuid.UUID) -> None:
         resume = result.scalar_one()
         resume.graph_built = True
         resume.updated_at = _now()
+
+
+async def save_person_embedding(user_id: str, embedding: list[float]) -> None:
+    async with get_session() as session:
+        result = await session.execute(select(User).where(User.user_id == uuid.UUID(user_id)))
+        user = result.scalar_one()
+        user.embedding = embedding
 
 
 async def get_latest_resume_for_user(email: str) -> Resume:

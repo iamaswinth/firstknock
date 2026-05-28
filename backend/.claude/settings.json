@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv\\\\Scripts\\\\pip.exe install *)",
+      "Bash(where python *)",
+      "Bash(findstr -i \"neo4j\\\\|venv\\\\|uvicorn\\\\|fastapi\")",
+      "Bash(.venvScriptspython.exe -c ' *)",
+      "Bash(\".venv/Scripts/python.exe\" -c \"import fastapi; print\\('ok'\\)\")",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(\".venv/Scripts/alembic.exe\" downgrade *)",
+      "Bash(\".venv/Scripts/alembic.exe\" upgrade *)",
+      "Bash(\".venv/Scripts/python.exe\" -m uvicorn firstknock.main:app --host 0.0.0.0 --port 8000 --reload)",
+      "Read(//c/Users/iamas/Storage/FIRSTKNOCK/firstknock/**)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d.get\\('scripts',{}\\), indent=2\\)\\)\")",
+      "Bash(\".venv/Scripts/python.exe\" -m celery -A firstknock.workers.celery_app worker --loglevel=info --pool=solo)",
+      "Bash(.venv/Scripts/python.exe scripts/test_perplexity.py)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\iamas\\Storage\\FIRSTKNOCK"
+    ]
+  }
+}

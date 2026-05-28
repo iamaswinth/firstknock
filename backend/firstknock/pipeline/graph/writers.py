@@ -14,6 +14,17 @@ from .queries import (
     MERGE_INSTITUTION_AND_STUDIED_AT,
     MERGE_CO_OCCURS_BATCH,
     COUNT_PERSON_RELS,
+    DELETE_STALE_INFERRED_SKILLS,
+    MERGE_INFERRED_HAS_SKILL,
+    SET_PERSON_SENIORITY,
+    SET_PERSON_GITHUB_STATS,
+    MERGE_PINNED_PROJECT,
+    SET_PROJECT_ENRICHMENT,
+    MERGE_PROJECT_TOPIC_SKILL,
+    SET_COMPANY_ENRICHMENT,
+    SET_INSTITUTION_TIER,
+    MERGE_LINKEDIN_WORKED_AT,
+    SET_PERSON_LINKEDIN_STATS,
 )
 
 logger = structlog.get_logger()
@@ -170,3 +181,202 @@ async def write_resume_graph(user_id: str, extracted_json: dict) -> None:
         else:
             rel_count = record["rel_count"] if record else 0
             logger.info("graph_write_complete", person_id=user_id, relationships=rel_count)
+
+
+# ── Final layer: inferred skills + enrichment ─────────────────────────────────
+
+_SKILL_CATEGORY_HINTS = {
+    "language": {"python", "typescript", "javascript", "go", "rust", "java", "c++", "c#", "ruby", "swift", "kotlin"},
+    "framework": {"react", "nextjs", "fastapi", "django", "express", "vue", "angular", "flask", "spring"},
+    "tool": {"docker", "kubernetes", "redis", "postgresql", "mongodb", "aws", "gcp", "azure"},
+}
+
+
+def _guess_category(skill_name: str) -> str:
+    lower = skill_name.lower()
+    for category, keywords in _SKILL_CATEGORY_HINTS.items():
+        if any(kw in lower for kw in keywords):
+            return category
+    return "concept"
+
+
+async def _write_inferred_tx(tx, user_id: str, inferred_json: dict) -> None:
+    r = await tx.run(DELETE_STALE_INFERRED_SKILLS, person_id=user_id)
+    await r.consume()
+    for skill in inferred_json.get("skills", []):
+        r = await tx.run(
+            MERGE_INFERRED_HAS_SKILL,
+            person_id=user_id,
+            name=skill["name"],
+            category=skill["category"],
+            confidence=skill["confidence"],
+            inferred_by=skill.get("inferred_by", ""),
+            reason=skill.get("reason", ""),
+        )
+        await r.consume()
+    seniority = inferred_json.get("seniority")
+    total_months = inferred_json.get("total_experience_months", 0)
+    if seniority:
+        r = await tx.run(
+            SET_PERSON_SENIORITY,
+            person_id=user_id,
+            seniority=seniority,
+            total_months=total_months,
+        )
+        await r.consume()
+
+
+async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_skills: set[str]) -> None:
+    async with driver.session(database="memgraph") as session:
+        github = enriched_json.get("github", {})
+        profile = github.get("profile", {})
+        if profile.get("followers") is not None or profile.get("public_repos") is not None:
+            await session.run(
+                SET_PERSON_GITHUB_STATS,
+                person_id=user_id,
+                followers=profile.get("followers", 0),
+                public_repos=profile.get("public_repos", 0),
+            )
+
+        for repo in github.get("pinned_repos", []):
+            project_id = repo["matched_project_id"]
+            description = repo.get("readme_summary") or repo.get("description") or ""
+            if repo.get("is_new", False):
+                r = await session.run(
+                    MERGE_PINNED_PROJECT,
+                    project_id=project_id,
+                    person_id=user_id,
+                    name=repo["name"],
+                    description=description,
+                    github_url=repo["github_url"],
+                    stars=repo.get("stars", 0),
+                    forks=repo.get("forks", 0),
+                    primary_language=repo.get("primary_language", ""),
+                )
+                await r.consume()
+            else:
+                r = await session.run(
+                    SET_PROJECT_ENRICHMENT,
+                    project_id=project_id,
+                    stars=repo.get("stars", 0),
+                    forks=repo.get("forks", 0),
+                    primary_language=repo.get("primary_language", ""),
+                    last_pushed=repo.get("last_pushed", ""),
+                    description=description,
+                )
+                await r.consume()
+
+            if repo.get("primary_language"):
+                r = await session.run(
+                    MERGE_PROJECT_TOPIC_SKILL,
+                    project_id=project_id,
+                    name=repo["primary_language"],
+                    category="language",
+                )
+                await r.consume()
+
+            for topic in repo.get("topics", []):
+                skill_name = topic.replace("-", " ").title()
+                r = await session.run(
+                    MERGE_PROJECT_TOPIC_SKILL,
+                    project_id=project_id,
+                    name=skill_name,
+                    category=_guess_category(skill_name),
+                )
+                await r.consume()
+
+            for skill_name in repo.get("extracted_skills", []):
+                if skill_name:
+                    r = await session.run(
+                        MERGE_PROJECT_TOPIC_SKILL,
+                        project_id=project_id,
+                        name=skill_name.strip(),
+                        category=_guess_category(skill_name),
+                    )
+                    await r.consume()
+
+        for company_name, data in enriched_json.get("companies", {}).items():
+            if any(v is not None and v != [] for v in data.values()):
+                r = await session.run(
+                    SET_COMPANY_ENRICHMENT,
+                    name=company_name,
+                    stage=data.get("stage"),
+                    industry=data.get("industry"),
+                    headcount=data.get("headcount"),
+                    founded=data.get("founded"),
+                    headquarters=data.get("headquarters"),
+                    website=data.get("website"),
+                    linkedin_url=data.get("linkedin_url"),
+                    description=data.get("description"),
+                    business_model=data.get("business_model"),
+                    total_funding_usd=data.get("total_funding_usd"),
+                    last_round_type=data.get("last_round_type"),
+                    last_round_amount_usd=data.get("last_round_amount_usd"),
+                    last_round_date=data.get("last_round_date"),
+                    key_investors=data.get("key_investors") or [],
+                    founders=data.get("founders") or [],
+                    ceo=data.get("ceo"),
+                )
+                await r.consume()
+
+        # LinkedIn profile stats on Person node
+        linkedin = enriched_json.get("linkedin", {})
+        li_profile = linkedin.get("profile", {})
+        if any(v is not None for v in li_profile.values()):
+            r = await session.run(
+                SET_PERSON_LINKEDIN_STATS,
+                person_id=user_id,
+                headline=li_profile.get("headline"),
+                connections=li_profile.get("connections"),
+                followers=li_profile.get("followers"),
+                summary=li_profile.get("summary"),
+            )
+            await r.consume()
+
+        # LinkedIn-sourced WORKED_AT edges (Company nodes MERGE'd automatically)
+        for exp in linkedin.get("experience", []):
+            if not exp.get("company") or not exp.get("title"):
+                continue
+            r = await session.run(
+                MERGE_LINKEDIN_WORKED_AT,
+                person_id=user_id,
+                company=exp["company"],
+                title=exp["title"],
+                start_date=exp.get("start_date"),
+                end_date=exp.get("end_date"),
+                is_current=exp.get("is_current", False),
+                description=exp.get("description", ""),
+            )
+            await r.consume()
+
+        for inst_name, data in enriched_json.get("institutions", {}).items():
+            r = await session.run(
+                SET_INSTITUTION_TIER,
+                name=inst_name,
+                ranking_tier=data.get("ranking_tier", "other"),
+            )
+            await r.consume()
+
+
+async def write_graph_final_layer(
+    user_id: str,
+    inferred_json: dict | None,
+    enriched_json: dict | None,
+    explicit_skills: set[str] | None = None,
+) -> None:
+    """Write inferred skills + enrichment to Memgraph in one pass. Called by finalize_enrichment or the fallback path."""
+    driver = await get_driver()
+
+    if inferred_json:
+        async with driver.session(database="memgraph") as session:
+            await session.execute_write(_write_inferred_tx, user_id, inferred_json)
+        logger.info(
+            "graph_final_layer_inferred",
+            person_id=user_id,
+            skills=len(inferred_json.get("skills", [])),
+            seniority=inferred_json.get("seniority"),
+        )
+
+    if enriched_json:
+        await _write_enrichment(driver, user_id, enriched_json, explicit_skills or set())
+        logger.info("graph_final_layer_enriched", person_id=user_id)

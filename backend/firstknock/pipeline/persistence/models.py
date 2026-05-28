@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import String, Text, Boolean, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from pgvector.sqlalchemy import Vector
 
 
 class Base(DeclarativeBase):
@@ -15,6 +16,7 @@ class User(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String, nullable=False, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
 
     resumes: Mapped[list["Resume"]] = relationship("Resume", back_populates="user")
 
@@ -28,6 +30,7 @@ class Resume(Base):
     raw_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     extracted_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     enriched_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    inferred_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="ingested")
     graph_built: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

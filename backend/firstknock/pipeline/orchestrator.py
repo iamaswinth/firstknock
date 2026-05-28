@@ -70,13 +70,26 @@ async def run_sync_ingestion(
     except Exception as exc:
         logger.warning("graph_write_failed", resume_id=str(resume_id), error=str(exc))
 
-    # Stage 7 — Inference Engine: infer implied skills + write seniority (non-fatal)
+    # Stage 7 — Inference Engine: compute inferred skills + save to Postgres (non-fatal)
     inferred_count = 0
+    inferred_json: dict | None = None
     if graph_written:
         try:
             from firstknock.pipeline.inference.engine import run_inference
-            inferred_count = await run_inference(str(user_id))
-            logger.info("inference_complete", person_id=str(user_id), inferred=inferred_count)
+            from firstknock.pipeline.inference.seniority import compute_seniority, compute_total_experience_months
+            from firstknock.pipeline.persistence.postgres_writer import save_inferred_data
+
+            inferred_result = await run_inference(str(user_id))
+            total_months = compute_total_experience_months(raw_dump.get("experience", []))
+            seniority = compute_seniority(total_months)
+            inferred_json = {
+                **inferred_result,
+                "seniority": seniority,
+                "total_experience_months": total_months,
+            }
+            await save_inferred_data(resume_id, inferred_json)
+            inferred_count = len(inferred_json.get("skills", []))
+            logger.info("inference_complete", person_id=str(user_id), inferred=inferred_count, seniority=seniority)
         except Exception as exc:
             logger.warning("inference_failed", person_id=str(user_id), error=str(exc))
 
@@ -119,6 +132,23 @@ async def run_sync_ingestion(
             enrichment_dispatched = True
         except Exception as exc:
             logger.warning("enrichment_dispatch_failed", resume_id=str(resume_id), error=str(exc))
+            if inferred_json:
+                try:
+                    from firstknock.pipeline.graph.writers import write_graph_final_layer
+                    await write_graph_final_layer(str(user_id), inferred_json, None)
+                    logger.info("fallback_graph_final_layer_written", person_id=str(user_id))
+                except Exception as inner_exc:
+                    logger.warning("fallback_graph_write_failed", person_id=str(user_id), error=str(inner_exc))
+
+    # Stage 9 — Async Embedding: generate + write vectors (non-blocking, non-fatal)
+    embedding_dispatched = False
+    if graph_written:
+        try:
+            from firstknock.pipeline.embedding.tasks import dispatch_embedding
+            dispatch_embedding(str(user_id), str(resume_id), raw_dump)
+            embedding_dispatched = True
+        except Exception as exc:
+            logger.warning("embedding_dispatch_failed", resume_id=str(resume_id), error=str(exc))
 
     return {
         "user_id": user_id,
@@ -140,4 +170,5 @@ async def run_sync_ingestion(
         "graph_written": graph_written,
         "inferred_skills": inferred_count,
         "enrichment_dispatched": enrichment_dispatched,
+        "embedding_dispatched": embedding_dispatched,
     }

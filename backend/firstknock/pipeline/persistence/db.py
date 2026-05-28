@@ -16,3 +16,8 @@ async def get_session():
         except Exception:
             await session.rollback()
             raise
+
+
+async def dispose_engine() -> None:
+    """Call at the end of every Celery task's asyncio.run() to drain the pool before the loop closes."""
+    await engine.dispose()

@@ -5,7 +5,10 @@ app = Celery(
     "firstknock",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["firstknock.pipeline.enrichment.tasks"],
+    include=[
+        "firstknock.pipeline.enrichment.tasks",
+        "firstknock.pipeline.embedding.tasks",
+    ],
 )
 
 app.conf.update(

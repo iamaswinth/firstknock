@@ -1,7 +1,314 @@
- 1. Person + Companies + their skills
+FIRSTKNOCK — MEMGRAPH GRAPH STATE
+Snapshot: 2026-05-28
+============================================================
+
+
+============================================================
+  NODE COUNTS
+============================================================
+  Skill                101
+  Project              5
+  Company              2
+  Institution          1
+  Person               1
+
+
+============================================================
+  RELATIONSHIP COUNTS
+============================================================
+  [CO_OCCURS_WITH           ]  x857
+  [HAS_SKILL                ]  x79
+  [USES                     ]  x37
+  [SKILL_IMPLIES            ]  x37
+  [USED_SKILL               ]  x18
+  [BUILT                    ]  x5
+  [WORKED_AT                ]  x4
+  [STUDIED_AT               ]  x1
+
+
+============================================================
+  PERSON: Aswinthraj Devaraj
+============================================================
+  email                               iamaswinth@gmail.com
+  embedding                           [dim=1536]
+  github_followers                    14
+  github_url                          https://github.com/iamaswinth
+  headline                            Full Stack AI Engineer building production-grade AI systems and real-time voice/multimodal apps.
+  linkedin_url                        https://www.linkedin.com/in/aswinthraj-d-362a18291/
+  location                            Tirupur, Tamil Nadu
+  name                                Aswinthraj Devaraj
+  person_id                           f9af8a5c-0793-48fe-ac93-4d64996a5ab5
+  public_repos                        22
+  seniority                           junior
+  total_experience_months             9
+
+  SKILLS BREAKDOWN
+  --------------------------------------------------------
+  source=explicit     category=concept      count=1
+  source=explicit     category=framework    count=11
+  source=explicit     category=language     count=5
+  source=explicit     category=tool         count=23
+  source=inferred     category=tool         count=3
+  source=inferred     category=none         count=36
+
+  EXPLICIT SKILLS
+  --------------------------------------------------------
+  [concept]
+    - Blender
+  [framework]
+    - Electron.js
+    - FastAPI
+    - Konva.js
+    - Next.js
+    - Node.js
+    - React
+    - React Native
+    - React Query
+    - Tailwind CSS
+    - WebRTC
+    - WebSockets
+  [language]
+    - CSS3
+    - HTML5
+    - JavaScript
+    - Python
+    - SQL
+  [tool]
+    - AWS RDS
+    - Azure VPS
+    - Browserbase
+    - Clerk
+    - Crawl4AI
+    - DigitalOcean
+    - Docker
+    - Gemini Live API
+    - GitHub Actions
+    - Google ADK
+    - LangGraph
+    - MySQL
+    - Neon (PostgreSQL)
+    - Pinecone
+    - Playwright
+    - PostgreSQL
+    - Postman
+    - Prisma ORM
+    - RAG
+    - TanStack Query
+    - Vite
+    - browser-use
+    - n8n
+
+  INFERRED SKILLS (by confidence)
+  --------------------------------------------------------
+  LLM Integration                0.88  [#################   ]  via Gemini Live API
+  ORM Concepts                   0.88  [#################   ]  via Prisma ORM
+  npm                            0.88  [#################   ]  via Node.js
+  Vector Databases               0.88  [#################   ]  via Pinecone
+  Web Scraping Frameworks        0.87  [#################   ]  via Crawl4AI
+  CI/CD Pipelines                0.87  [#################   ]  via GitHub Actions
+  Containerization               0.87  [#################   ]  via Docker
+  Real-time Communication        0.87  [#################   ]  via WebSockets
+  pip                            0.87  [#################   ]  via Python
+  Headless Browser Automation    0.86  [#################   ]  via Playwright
+  Web Scraping                   0.86  [#################   ]  via Playwright
+  Cross-platform Development     0.85  [#################   ]  via React Native
+  Async/Await Programming        0.85  [#################   ]  via FastAPI
+  Agent-Based AI Systems         0.85  [#################   ]  via LangGraph
+  REST APIs                      0.85  [#################   ]  via FastAPI
+  git                            0.85  [#################   ]  via GitHub Actions
+  Authentication & Authorization 0.84  [################    ]  via Clerk
+  TypeScript                     0.84  [################    ]  via Next.js
+  Full-Stack JavaScript          0.83  [################    ]  via Node.js
+  Real-time Web Applications     0.82  [################    ]  via WebRTC
+  Prompt Engineering             0.82  [################    ]  via Gemini Live API
+  JSON Web Tokens                0.82  [################    ]  via Clerk
+  Streaming & Server Streaming   0.81  [################    ]  via Gemini Live API
+  State Management               0.81  [################    ]  via React Query
+  Database Design                0.80  [################    ]  via PostgreSQL
+  API Design                     0.80  [################    ]  via FastAPI
+  Graphics Rendering             0.79  [###############     ]  via Blender
+  Canvas & 2D Graphics           0.78  [###############     ]  via Konva.js
+  WebGL                          0.78  [###############     ]  via Blender
+  Desktop Application Development 0.77  [###############     ]  via Electron.js
+  Infrastructure as Code         0.76  [###############     ]  via Docker
+  Workflow Automation            0.75  [###############     ]  via n8n
+  Server-Sent Events             0.75  [###############     ]  via WebSockets
+  Module Bundling                0.74  [##############      ]  via Vite
+  Data Serialization             0.72  [##############      ]  via WebSockets
+  Cloud Deployment               0.71  [##############      ]  via AWS RDS
+  Query Optimization             0.70  [##############      ]  via Prisma ORM
+  n8n Automation                 0.50  [##########          ]  via (no source)
+  Browser-use                    0.50  [##########          ]  via (no source)
+
+  WORK EXPERIENCE
+  --------------------------------------------------------
+  Software Engineer Intern @ TechKareer [current]  source=linkedin
+    Feb 2026 -> present  |  ? months
+  Software Engineering Intern @ TechKareer [current]
+    2026-01 -> present  |  4 months
+  Software Engineering Intern @ Praskla Technology  source=linkedin
+    Jul 2025 -> Jan 2026  |  ? months
+  Software Engineering Intern @ Praskla Technology
+    2025-07 -> 2025-12  |  5 months
+
+  NOTE: TechKareer appears twice (resume + LinkedIn). Praskla appears twice (resume + LinkedIn).
+        Deduplication pass recommended before querying work history.
+
+  SKILLS PER COMPANY (via USED_SKILL edges)
+  --------------------------------------------------------
+  TechKareer
+    - Azure VPS (x2 — deduplicate)
+    - Crawl4AI
+    - FastAPI
+    - Gemini Live API
+    - Google ADK
+    - LangGraph
+    - Next.js
+    - Playwright
+    - React Native
+    - TanStack Query
+    - browser-use
+    - n8n
+  Praskla Technology
+    - AWS RDS
+    - Electron.js
+    - Konva.js
+    - MySQL
+    - React
+    - Vite
+
+  PROJECTS
+  --------------------------------------------------------
+  T2T-Project  [github_pinned]  stars=0  lang=JavaScript
+    github: https://github.com/iamaswinth/T2T-Project
+    stack:  JavaScript
+
+  FixMate_v1  [github_pinned]  stars=0  lang=Dart
+    desc:   FixMate is a Flutter mobile app connecting customers with nearby service providers
+    github: https://github.com/iamaswinth/FixMate_v1
+    stack:  Android, Dart, Firebase, Firestore, Flutter, Git, Mobile Development,
+            Provider, State Management, UI/UX Design
+
+  Context-core  [github_pinned]  stars=0  lang=Python
+    github: https://github.com/iamaswinth/Context-core
+    stack:  Python
+
+  The Mind Surf - AI-Powered Document Chat & RAG App  stars=0  lang=TypeScript
+    desc:   Full-stack RAG app processing multimodal documents (PDFs with text, tables, images)
+    github: https://github.com/iamaswinth/TheMindSurf
+    stack:  BGE-Reranker, Docker, FastAPI, GPT-4o, GPT-4o Vision, JWT Authentication,
+            Neon (PostgreSQL), Next.js, Pinecone, PostgreSQL, React 19, React Query,
+            Tailwind CSS, Tesseract OCR, TypeScript, Unstructured.io, Vercel AI SDK, asyncpg
+
+  Syntax - Full-Stack Quiz & Competitive Programming Platform  stars=None  lang=None
+    desc:   Full-stack competitive programming platform with RBAC and real-time contests
+    github: https://github.com/iamaswinth/Syntax
+    stack:  Express, Firebase, JWT, Judge API, Node.js, React, Redis
+
+  EDUCATION
+  --------------------------------------------------------
+  Bachelor in Computer Science and Engineering @ KSR College of Engineering, Tiruchengode
+    years: Sep 2023 - Present  |  tier=other
+
+
+============================================================
+  COMPANY INTELLIGENCE
+============================================================
+
+  Praskla Technology
+  ----------------------------------------
+  stage                     unknown
+  industry                  Education software
+  business_model            other
+  description               Placement management system for educational institutions (PlaciPy/assessment-placipy).
+                            Software company targeting education administration rather than consumer or enterprise.
+
+  TechKareer
+  ----------------------------------------
+  stage                     unknown
+  industry                  staffing & recruiting
+  business_model            marketplace
+  website                   https://www.techkareer.com
+  description               Helps companies hire engineering talent at lower cost. 20+ companies served.
+                            Positions as hiring marketplace — "hire like FAANG for 1/4th of the cost."
+
+
+============================================================
+  INSTITUTIONS
+============================================================
+  KSR College of Engineering, Tiruchengode      tier=other
+
+
+============================================================
+  SKILL_IMPLIES (top 20 by frequency)
+============================================================
+  Prisma ORM                -> ORM Concepts              conf=0.88  seen=1x
+  Pinecone                  -> Vector Databases          conf=0.88  seen=1x
+  Gemini Live API           -> LLM Integration           conf=0.88  seen=1x
+  Node.js                   -> npm                       conf=0.88  seen=1x
+  Crawl4AI                  -> Web Scraping Frameworks   conf=0.87  seen=1x
+  GitHub Actions            -> CI/CD Pipelines           conf=0.87  seen=1x
+  Docker                    -> Containerization          conf=0.87  seen=1x
+  WebSockets                -> Real-time Communication   conf=0.87  seen=1x
+  Python                    -> pip                       conf=0.87  seen=1x
+  Playwright                -> Headless Browser Automation  conf=0.86  seen=1x
+  Playwright                -> Web Scraping              conf=0.86  seen=1x
+  GitHub Actions            -> git                       conf=0.85  seen=1x
+  React Native              -> Cross-platform Development  conf=0.85  seen=1x
+  LangGraph                 -> Agent-Based AI Systems    conf=0.85  seen=1x
+  FastAPI                   -> REST APIs                 conf=0.85  seen=1x
+  FastAPI                   -> Async/Await Programming   conf=0.85  seen=1x
+  Clerk                     -> Authentication & Authorization  conf=0.84  seen=1x
+  Next.js                   -> TypeScript                conf=0.84  seen=1x
+  Node.js                   -> Full-Stack JavaScript     conf=0.83  seen=1x
+  WebRTC                    -> Real-time Web Applications  conf=0.82  seen=1x
+
+
+============================================================
+  CO_OCCURS_WITH SUMMARY
+============================================================
+  total pair edges:     857
+  total co-occurrences: 1560
+
+  TOP CO-OCCURRING PAIRS
+  Azure VPS                 <-> Gemini Live API            x2
+  Azure VPS                 <-> GitHub Actions             x2
+  Azure VPS                 <-> Google ADK                 x2
+  Azure VPS                 <-> HTML5                      x2
+  Azure VPS                 <-> JavaScript                 x2
+  Azure VPS                 <-> Konva.js                   x2
+  Azure VPS                 <-> LangGraph                  x2
+  Azure VPS                 <-> MySQL                      x2
+  Azure VPS                 <-> Neon (PostgreSQL)          x2
+  Azure VPS                 <-> Next.js                    x2
+
+
+============================================================
+  USEFUL CYPHER QUERIES
+============================================================
+
+  1. Person + Companies + their skills
   MATCH (p:Person)-[w:WORKED_AT]->(c:Company)-[u:USED_SKILL]->(s:Skill)
   RETURN p, w, c, u, s
 
   2. Person + Projects + their tech stacks
   MATCH (p:Person)-[b:BUILT]->(proj:Project)-[u:USES]->(s:Skill)
   RETURN p, b, proj, u, s
+
+  3. All skills with source and confidence
+  MATCH (p:Person)-[r:HAS_SKILL]->(s:Skill)
+  RETURN s.name, r.source, r.confidence, r.inferred_by
+  ORDER BY r.source, r.confidence DESC
+
+  4. Inferred skill chains (what implies what)
+  MATCH (s1:Skill)-[r:SKILL_IMPLIES]->(s2:Skill)
+  RETURN s1.name AS from, s2.name AS to, r.confidence
+  ORDER BY r.confidence DESC
+
+  5. Full person profile with all edges
+  MATCH (p:Person {name: "Aswinthraj Devaraj"})
+  OPTIONAL MATCH (p)-[w:WORKED_AT]->(c:Company)
+  OPTIONAL MATCH (p)-[b:BUILT]->(proj:Project)
+  OPTIONAL MATCH (p)-[e:STUDIED_AT]->(i:Institution)
+  OPTIONAL MATCH (p)-[h:HAS_SKILL]->(s:Skill)
+  RETURN p, w, c, b, proj, e, i, h, s
