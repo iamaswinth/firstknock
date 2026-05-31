@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import Literal
 from pydantic import BaseModel
 
 
@@ -7,6 +9,12 @@ class IngestResponse(BaseModel):
     status: str
     stages_complete: list[str]
     stages_pending: list[str]
+
+
+class DeleteResumeResponse(BaseModel):
+    resume_id: str
+    user_id: str
+    deleted: bool
 
 
 # ── Health ────────────────────────────────────────────────────────────────────
@@ -53,10 +61,41 @@ class ProfileResponse(BaseModel):
     total_experience_months: int | None = None
     github_followers: int | None = None
     public_repos: int | None = None
+    profile_picture_url: str | None = None
     experience: list[dict]
     projects: list[dict]
     education: list[dict]
     skills_summary: dict   # {explicit_count, inferred_count, total}
+
+
+class CompletenessSection(BaseModel):
+    name: str
+    score: int
+    max: int
+    pct: int
+    missing: list[str]
+    suggestion: str | None = None
+
+
+class ProfileCompletenessResponse(BaseModel):
+    user_id: str
+    overall_score: int
+    label: str
+    top_suggestion: str
+    sections: list[CompletenessSection]
+    enrichment_status: dict[str, bool]
+
+
+# ── Role fit ─────────────────────────────────────────────────────────────────
+
+class RoleMatch(BaseModel):
+    title: str
+    reason: str
+
+
+class RoleFitResponse(BaseModel):
+    user_id: str
+    roles: list[RoleMatch]
 
 
 # ── Skills ────────────────────────────────────────────────────────────────────
@@ -153,3 +192,41 @@ class AnalyticsResponse(BaseModel):
     skill_communities: list[SkillCommunity] | None = None
     bridge_skills: list[BridgeSkill] | None = None
     inferred_skills: list[InferredSkillDetail]
+
+
+# ── Career Timeline (dedicated endpoint) ──────────────────────────────────────
+
+class CompanyDetail(BaseModel):
+    name: str
+    industry: str | None = None
+    stage: str | None = None
+    headcount: int | None = None
+    founded: int | None = None
+    headquarters: str | None = None
+    website: str | None = None
+    total_funding_usd: float | None = None
+    last_round_type: str | None = None
+    last_round_amount_usd: float | None = None
+    key_investors: list[str] = []
+    founders: list[str] = []
+    ceo: str | None = None
+
+
+class TimelineEvent(BaseModel):
+    id: str
+    type: Literal["experience", "education"]
+    label: str
+    entity: str
+    start_date: str | None = None
+    end_date: str | None = None
+    months: int | None = None
+    is_current: bool = False
+    tech_stack: list[str] = []
+    field: str | None = None
+    company_detail: CompanyDetail | None = None
+
+
+class CareerTimelineResponse(BaseModel):
+    user_id: str
+    total_experience_months: int | None = None
+    events: list[TimelineEvent]

@@ -208,7 +208,7 @@ MERGE_LINKEDIN_WORKED_AT = """
 MERGE (c:Company {name: $company})
 WITH c
 MATCH (p:Person {person_id: $person_id})
-MERGE (p)-[r:WORKED_AT {title: $title, start_date: $start_date, source: 'linkedin'}]->(c)
+MERGE (p)-[r:WORKED_AT {title: $title, start_date: $start_date}]->(c)
 ON CREATE SET r.end_date = $end_date, r.is_current = $is_current,
               r.description = $description, r.source = 'linkedin'
 ON MATCH SET  r.end_date = $end_date, r.is_current = $is_current,
@@ -253,6 +253,32 @@ RETURN proj.project_id AS project_id,
        proj.description AS description
 """
 
+# ── Career Timeline read queries ─────────────────────────────────────────────
+
+GET_CAREER_WORKED_AT = """
+MATCH (p:Person {person_id: $person_id})-[r:WORKED_AT]->(c:Company)
+RETURN c.name AS company, r.title AS title,
+       r.start_date AS start_date, r.end_date AS end_date,
+       r.months AS months, r.is_current AS is_current,
+       r.skills_used AS skills_used,
+       c.industry AS industry, c.stage AS stage,
+       c.headcount AS headcount, c.founded AS founded,
+       c.headquarters AS headquarters, c.website AS website,
+       c.total_funding_usd AS total_funding_usd,
+       c.last_round_type AS last_round_type,
+       c.last_round_amount_usd AS last_round_amount_usd,
+       c.key_investors AS key_investors,
+       c.founders AS founders, c.ceo AS ceo
+ORDER BY r.start_date DESC
+"""
+
+GET_CAREER_STUDIED_AT = """
+MATCH (p:Person {person_id: $person_id})-[r:STUDIED_AT]->(i:Institution)
+RETURN i.name AS institution, r.degree AS degree, r.field AS field,
+       r.start_year AS start_year, r.end_year AS end_year
+ORDER BY r.end_year DESC
+"""
+
 # ── Phase 8: API read queries ─────────────────────────────────────────────────
 
 GET_PERSON_NODE = """
@@ -261,6 +287,11 @@ RETURN p.seniority AS seniority,
        p.total_experience_months AS total_months,
        p.github_followers AS github_followers,
        p.public_repos AS public_repos
+"""
+
+DELETE_PERSON_AND_RELS = """
+MATCH (p:Person {person_id: $person_id})
+DETACH DELETE p
 """
 
 GET_ALL_SKILLS = """
@@ -272,16 +303,38 @@ ORDER BY r.source, r.confidence DESC
 """
 
 GET_EGO_GRAPH = """
-MATCH (p:Person {person_id: $person_id})-[r]-(n)
+MATCH (p:Person {person_id: $person_id})-[w:WORKED_AT]->(c:Company)
 RETURN labels(p) AS src_labels, properties(p) AS src_props,
-       type(r) AS rel_type, properties(r) AS rel_props,
-       labels(n) AS tgt_labels, properties(n) AS tgt_props
-UNION
-MATCH (p:Person {person_id: $person_id})-[:BUILT]->(proj:Project)-[r2]->(s)
-RETURN labels(proj) AS src_labels, properties(proj) AS src_props,
-       type(r2) AS rel_type, properties(r2) AS rel_props,
+       type(w) AS rel_type, properties(w) AS rel_props,
+       labels(c) AS tgt_labels, properties(c) AS tgt_props
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)-[u:USED_SKILL]->(s:Skill)
+RETURN labels(c) AS src_labels, properties(c) AS src_props,
+       type(u) AS rel_type, properties(u) AS rel_props,
        labels(s) AS tgt_labels, properties(s) AS tgt_props
-LIMIT 150
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[b:BUILT]->(proj:Project)
+RETURN labels(p) AS src_labels, properties(p) AS src_props,
+       type(b) AS rel_type, properties(b) AS rel_props,
+       labels(proj) AS tgt_labels, properties(proj) AS tgt_props
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[:BUILT]->(proj:Project)-[u:USES]->(s:Skill)
+RETURN labels(proj) AS src_labels, properties(proj) AS src_props,
+       type(u) AS rel_type, properties(u) AS rel_props,
+       labels(s) AS tgt_labels, properties(s) AS tgt_props
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[st:STUDIED_AT]->(i:Institution)
+RETURN labels(p) AS src_labels, properties(p) AS src_props,
+       type(st) AS rel_type, properties(st) AS rel_props,
+       labels(i) AS tgt_labels, properties(i) AS tgt_props
 """
 
 GET_PERSON_SKILL_COOCCURRENCE = """

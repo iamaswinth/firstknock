@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import structlog
 import httpx
 from pydantic import BaseModel
@@ -26,6 +27,7 @@ class LinkedInProfileData(BaseModel):
     connections: int | None = None
     followers: int | None = None
     recommendations_count: int | None = None
+    profile_picture_url: str | None = None
     skills: list[str] = []
     experience: list[LinkedInExperience] = []
 
@@ -138,6 +140,25 @@ async def enrich_linkedin(linkedin_url: str) -> LinkedInProfileData:
         experience = _parse_experience(raw.get("experience") or [])
         skills = _parse_skills(raw.get("skills") or [])
 
+        # profilePicture is {"url": "...", "sizes": [...]}; "photo" is the flat string version.
+        # We download the image server-side and store it as a data URL so the browser
+        # never has to request it directly from LinkedIn's CDN (which blocks cross-origin loads).
+        pic_raw = raw.get("profilePicture") or {}
+        cdn_url = (pic_raw.get("url") if isinstance(pic_raw, dict) else None) or raw.get("photo") or None
+        profile_picture_url: str | None = None
+        if cdn_url:
+            try:
+                async with httpx.AsyncClient(timeout=15) as pic_client:
+                    pic_resp = await pic_client.get(cdn_url, headers={"Referer": "https://www.linkedin.com/"})
+                if pic_resp.status_code == 200:
+                    mime = pic_resp.headers.get("content-type", "image/jpeg").split(";")[0]
+                    b64 = base64.b64encode(pic_resp.content).decode()
+                    profile_picture_url = f"data:{mime};base64,{b64}"
+                else:
+                    logger.warning("linkedin_pic_download_failed", status=pic_resp.status_code)
+            except Exception as pic_exc:
+                logger.warning("linkedin_pic_download_error", error=str(pic_exc))
+
         profile = LinkedInProfileData(
             headline=raw.get("headline") or None,
             summary=raw.get("about") or None,
@@ -145,6 +166,7 @@ async def enrich_linkedin(linkedin_url: str) -> LinkedInProfileData:
             connections=raw.get("connectionsCount") or None,
             followers=raw.get("followerCount") or None,
             recommendations_count=rec_count,
+            profile_picture_url=profile_picture_url,
             skills=skills,
             experience=experience,
         )

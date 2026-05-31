@@ -9,6 +9,7 @@ from firstknock.pipeline.enrichment.linkedin import enrich_linkedin
 from firstknock.pipeline.persistence.postgres_writer import save_enrichment_data, get_resume_by_id
 from firstknock.pipeline.persistence.db import dispose_engine
 from firstknock.pipeline.graph.writers import write_graph_final_layer
+from firstknock.pipeline.graph.client import close_driver
 
 logger = structlog.get_logger()
 
@@ -130,15 +131,26 @@ def process_enrichment(
         except Exception as exc:
             logger.warning("enrichment_graph_failed", person_id=person_id, error=str(exc))
 
+        await close_driver()
         await dispose_engine()
 
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     try:
-        asyncio.run(_run())
+        loop.run_until_complete(_run())
+        # Drain lingering cleanup tasks (e.g. httpx connection pool teardown)
+        # to avoid "Task exception was never retrieved" on Windows + Python 3.14.
+        pending = asyncio.all_tasks(loop)
+        if pending:
+            loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
         logger.info("enrichment_complete", person_id=person_id, resume_id=resume_id)
         return {"status": "ok", "person_id": person_id}
     except Exception as exc:
         logger.warning("enrichment_task_failed", person_id=person_id, error=str(exc))
         raise self.retry(exc=exc)
+    finally:
+        loop.close()
+        asyncio.set_event_loop(None)
 
 
 def dispatch_enrichment(

@@ -2,7 +2,11 @@ FIRSTKNOCK — MEMGRAPH GRAPH STATE
 Snapshot: 2026-05-28
 ============================================================
 
-
+  MATCH p1 = (p:Person)-[:WORKED_AT]->(c:Company)-[:USED_SKILL]->(s:Skill)
+RETURN p1
+UNION ALL
+MATCH p2 = (per:Person)-[:BUILT]->(proj:Project)-[:USES]->(s:Skill)
+RETURN p2 AS p1
 ============================================================
   NODE COUNTS
 ============================================================

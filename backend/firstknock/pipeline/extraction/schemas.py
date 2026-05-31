@@ -1,6 +1,11 @@
 from pydantic import BaseModel, field_validator
 
 
+class RoleRecommendation(BaseModel):
+    title: str
+    reason: str
+
+
 def _null_if_not_url(v: str | None) -> str | None:
     if v and not v.startswith("http"):
         return None
@@ -76,3 +81,4 @@ class ResumeExtraction(BaseModel):
     education: list[EducationEntry] = []
     certifications: list[str] = []
     languages_spoken: list[str] = []
+    role_recommendations: list[RoleRecommendation] = []

@@ -1,10 +1,13 @@
+import re
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from firstknock.api.auth import verify_clerk_token
 
 from firstknock.api.schemas import (
     GraphResponse, GraphNode, GraphLink, GraphCommunity,
     AnalyticsResponse, CareerEntry, BridgeSkill, InferredSkillDetail, SkillCommunity,
+    CareerTimelineResponse, TimelineEvent, CompanyDetail,
 )
 from firstknock.pipeline.graph.client import get_driver
 from firstknock.pipeline.graph.queries import (
@@ -13,6 +16,8 @@ from firstknock.pipeline.graph.queries import (
     GET_PERSON_SKILL_COOCCURRENCE,
     GET_INFERRED_SKILLS_DETAIL,
     GET_PERSON_NODE,
+    GET_CAREER_WORKED_AT,
+    GET_CAREER_STUDIED_AT,
 )
 from firstknock.pipeline.persistence.db import get_session
 from firstknock.pipeline.persistence.models import Resume, User
@@ -36,7 +41,7 @@ def _community_name(skills: list[str]) -> str:
 # ── /graph/{user_id} ─────────────────────────────────────────────────────────
 
 @router.get("/graph/{user_id}", response_model=GraphResponse)
-async def get_graph(user_id: str):
+async def get_graph(user_id: str, _: dict = Depends(verify_clerk_token)):
     try:
         driver = await get_driver()
     except Exception as exc:
@@ -175,7 +180,7 @@ async def get_graph(user_id: str):
 # ── /analytics/{user_id} ─────────────────────────────────────────────────────
 
 @router.get("/analytics/{user_id}", response_model=AnalyticsResponse)
-async def get_analytics(user_id: str):
+async def get_analytics(user_id: str, _: dict = Depends(verify_clerk_token)):
     try:
         uid = uuid.UUID(user_id)
     except ValueError:
@@ -299,6 +304,232 @@ async def get_analytics(user_id: str):
         skill_communities=skill_communities,
         bridge_skills=bridge_skills,
         inferred_skills=inferred_skills,
+    )
+
+
+# ── /career-timeline/{user_id} ───────────────────────────────────────────────
+
+_MONTH_MAP = {
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
+    "may": "05", "jun": "06", "jul": "07", "aug": "08",
+    "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+}
+
+def _normalize_date(value: str | None) -> str | None:
+    """Normalize messy date strings to YYYY-MM or YYYY for the frontend parser.
+    Handles: 'Jul 2025', 'July 2025', '2025-07', '2025', 'Present', None.
+    Returns None for 'Present' / unparseable values.
+    """
+    if not value:
+        return None
+    v = value.strip()
+    if v.lower() in ("present", "current", "now", "—", "-", ""):
+        return None
+    # Already ISO: YYYY-MM-DD or YYYY-MM
+    if re.match(r"^\d{4}-\d{2}", v):
+        return v[:7]   # keep YYYY-MM
+    # Already bare year: YYYY
+    if re.match(r"^\d{4}$", v):
+        return v
+    # "Jul 2025" or "July 2025"
+    m = re.match(r"^([A-Za-z]+)[\s\-]+(\d{4})$", v)
+    if m:
+        mon = _MONTH_MAP.get(m.group(1).lower()[:3])
+        if mon:
+            return f"{m.group(2)}-{mon}"
+    # "2025 Jul" (reversed)
+    m = re.match(r"^(\d{4})[\s\-]+([A-Za-z]+)$", v)
+    if m:
+        mon = _MONTH_MAP.get(m.group(2).lower()[:3])
+        if mon:
+            return f"{m.group(1)}-{mon}"
+    return None   # unparseable → drop
+
+
+def _dedup_events(events: list[TimelineEvent]) -> list[TimelineEvent]:
+    """Remove duplicate events, preferring the one with the richest data.
+
+    Two events are considered duplicates if they share:
+    - exact: same type + entity + start month (YYYY-MM)
+    - fuzzy: same type + entity + label (title) — catches same role where LinkedIn
+      and resume extraction disagree on the start month by 1-2 months.
+
+    Among duplicates, keep: company_detail > no detail, tech_stack > empty, months > None.
+    """
+    def _richer(candidate: TimelineEvent, existing: TimelineEvent) -> bool:
+        if candidate.company_detail and not existing.company_detail:
+            return True
+        if len(candidate.tech_stack) > len(existing.tech_stack):
+            return True
+        if candidate.months is not None and existing.months is None:
+            return True
+        return False
+
+    # Pass 1: exact key (type | entity | YYYY-MM)
+    seen: dict[str, TimelineEvent] = {}
+    for ev in events:
+        key = f"{ev.type}|{ev.entity.lower()}|{(ev.start_date or '')[:7]}"
+        if key not in seen:
+            seen[key] = ev
+        elif _richer(ev, seen[key]):
+            seen[key] = ev
+
+    # Pass 2: fuzzy key (type | entity | normalised title) — catches month mismatch
+    result: list[TimelineEvent] = []
+    fuzzy_seen: dict[str, TimelineEvent] = {}
+    for ev in seen.values():
+        # normalise title from label: "Software Engineer Intern · TechKareer" → "software engineer intern"
+        title_part = ev.label.split("·")[0].strip().lower() if ev.label else ""
+        fuzzy_key = f"{ev.type}|{ev.entity.lower()}|{title_part}"
+        if fuzzy_key not in fuzzy_seen:
+            fuzzy_seen[fuzzy_key] = ev
+        elif _richer(ev, fuzzy_seen[fuzzy_key]):
+            fuzzy_seen[fuzzy_key] = ev
+
+    return list(fuzzy_seen.values())
+
+
+@router.get("/career-timeline/{user_id}", response_model=CareerTimelineResponse)
+async def get_career_timeline(user_id: str, _: dict = Depends(verify_clerk_token)):
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user_id format")
+
+    exp_events: list[TimelineEvent] = []
+    edu_events: list[TimelineEvent] = []
+    total_months: int | None = None
+
+    # ── Primary: Memgraph ─────────────────────────────────────────────────────
+    # Use .data() (dict access) not .values() (positional) to avoid Memgraph
+    # returning columns in alphabetical order instead of declaration order.
+    try:
+        driver = await get_driver()
+
+        async with driver.session(database="memgraph") as session:
+            pnode_r = await session.run(GET_PERSON_NODE, person_id=user_id)
+            pnode = await pnode_r.single()
+            if pnode:
+                total_months = pnode["total_months"]
+
+            exp_r  = await session.run(GET_CAREER_WORKED_AT,  person_id=user_id)
+            exp_rows = await exp_r.data()
+
+            edu_r  = await session.run(GET_CAREER_STUDIED_AT, person_id=user_id)
+            edu_rows = await edu_r.data()
+
+        for i, row in enumerate(exp_rows):
+            company   = row.get("company") or ""
+            title     = row.get("title")   or ""
+            detail = CompanyDetail(
+                name=company,
+                industry=row.get("industry"),
+                stage=row.get("stage"),
+                headcount=int(row["headcount"])     if row.get("headcount")     is not None else None,
+                founded=int(row["founded"])         if row.get("founded")       is not None else None,
+                headquarters=row.get("headquarters"),
+                website=row.get("website"),
+                total_funding_usd=float(row["total_funding_usd"])         if row.get("total_funding_usd")     is not None else None,
+                last_round_type=row.get("last_round_type"),
+                last_round_amount_usd=float(row["last_round_amount_usd"]) if row.get("last_round_amount_usd") is not None else None,
+                key_investors=list(row["key_investors"]) if row.get("key_investors") else [],
+                founders=list(row["founders"])           if row.get("founders")      else [],
+                ceo=row.get("ceo"),
+            )
+            raw_months = row.get("months")
+            exp_events.append(TimelineEvent(
+                id=f"exp-{i}",
+                type="experience",
+                label=f"{title} · {company}".strip(" ·") if title or company else "",
+                entity=company,
+                start_date=_normalize_date(row.get("start_date")),
+                end_date=_normalize_date(row.get("end_date")),
+                months=int(raw_months) if raw_months is not None else None,
+                is_current=bool(row.get("is_current")),
+                tech_stack=list(row["skills_used"]) if row.get("skills_used") else [],
+                company_detail=detail,
+            ))
+
+        for i, row in enumerate(edu_rows):
+            start_year = row.get("start_year")
+            end_year   = row.get("end_year")
+            edu_events.append(TimelineEvent(
+                id=f"edu-{i}",
+                type="education",
+                label=f"{row.get('degree', '')} · {row.get('institution', '')}".strip(" ·"),
+                entity=row.get("institution") or "",
+                start_date=_normalize_date(str(int(start_year))) if start_year is not None else None,
+                end_date=_normalize_date(str(int(end_year)))     if end_year   is not None else None,
+                field=row.get("field"),
+            ))
+
+    except Exception as exc:
+        logger.warning("career_timeline_graph_failed", user_id=user_id, error=str(exc))
+
+    # ── Fallback: Postgres extracted_json (only for what's still missing) ─────
+    needs_exp = len(exp_events) == 0
+    needs_edu = len(edu_events) == 0
+
+    if needs_exp or needs_edu:
+        async with get_session() as pg_session:
+            result = await pg_session.execute(
+                select(Resume, User)
+                .join(User, Resume.user_id == User.user_id)
+                .where(Resume.user_id == uid)
+                .order_by(Resume.ingested_at.desc())
+                .limit(1)
+            )
+            pg_row = result.first()
+
+        if not pg_row and len(exp_events) == 0 and len(edu_events) == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if pg_row:
+            resume, _ = pg_row
+            extracted = resume.extracted_json or {}
+
+            if needs_exp:
+                for i, exp in enumerate(extracted.get("experience", [])):
+                    exp_events.append(TimelineEvent(
+                        id=f"exp-{i}",
+                        type="experience",
+                        label=f"{exp.get('title', '')} · {exp.get('company', '')}".strip(" ·"),
+                        entity=exp.get("company", ""),
+                        start_date=_normalize_date(exp.get("start_date")),
+                        end_date=_normalize_date(exp.get("end_date")),
+                        months=exp.get("months"),
+                        is_current=exp.get("is_current", False),
+                        tech_stack=exp.get("tech_stack", []),
+                    ))
+
+            if needs_edu:
+                for i, edu in enumerate(extracted.get("education", [])):
+                    sy = edu.get("start_year")
+                    ey = edu.get("end_year")
+                    edu_events.append(TimelineEvent(
+                        id=f"edu-{i}",
+                        type="education",
+                        label=f"{edu.get('degree', '')} · {edu.get('institution', '')}".strip(" ·"),
+                        entity=edu.get("institution", ""),
+                        start_date=_normalize_date(str(sy)) if sy else None,
+                        end_date=_normalize_date(str(ey))   if ey else None,
+                        field=edu.get("field"),
+                    ))
+
+    # Deduplicate within each group (handles Memgraph duplicate edges from re-ingest)
+    exp_events = _dedup_events(exp_events)
+    edu_events = _dedup_events(edu_events)
+
+    # Re-assign sequential IDs after dedup
+    for i, ev in enumerate(exp_events):
+        ev.id = f"exp-{i}"
+    for i, ev in enumerate(edu_events):
+        ev.id = f"edu-{i}"
+
+    return CareerTimelineResponse(
+        user_id=user_id,
+        total_experience_months=total_months,
+        events=exp_events + edu_events,
     )
 
 

@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
 
+    # Clerk auth
+    clerk_secret_key: str = ""
+    clerk_jwks_url: str = ""
+
     # App
     env: str = "development"
     log_level: str = "INFO"

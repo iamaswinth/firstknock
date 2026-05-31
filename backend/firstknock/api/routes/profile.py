@@ -1,7 +1,9 @@
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
-from firstknock.api.schemas import ResumeStatusResponse, ProfileResponse
+from firstknock.api.auth import verify_clerk_token
+from firstknock.api.schemas import ResumeStatusResponse, ProfileResponse, ProfileCompletenessResponse, RoleFitResponse, RoleMatch
+from firstknock.pipeline.completeness import calculate_completeness
 from firstknock.pipeline.persistence.db import get_session
 from firstknock.pipeline.persistence.models import Resume, User
 from firstknock.pipeline.graph.client import get_driver
@@ -13,7 +15,7 @@ logger = structlog.get_logger()
 
 
 @router.get("/resume/{resume_id}", response_model=ResumeStatusResponse)
-async def get_resume(resume_id: str):
+async def get_resume(resume_id: str, _: dict = Depends(verify_clerk_token)):
     try:
         rid = uuid.UUID(resume_id)
     except ValueError:
@@ -52,7 +54,7 @@ async def get_resume(resume_id: str):
 
 
 @router.get("/profile/{user_id}", response_model=ProfileResponse)
-async def get_profile(user_id: str):
+async def get_profile(user_id: str, _: dict = Depends(verify_clerk_token)):
     try:
         uid = uuid.UUID(user_id)
     except ValueError:
@@ -95,6 +97,9 @@ async def get_profile(user_id: str):
     skills = extracted.get("skills", {})
     explicit_count = sum(len(v) for v in skills.values() if isinstance(v, list))
 
+    enriched = resume.enriched_json or {}
+    profile_picture_url = (enriched.get("linkedin") or {}).get("profile_picture_url") or None
+
     return ProfileResponse(
         user_id=user_id,
         name=identity.get("name", ""),
@@ -107,6 +112,7 @@ async def get_profile(user_id: str):
         total_experience_months=total_months,
         github_followers=github_followers,
         public_repos=public_repos,
+        profile_picture_url=profile_picture_url,
         experience=extracted.get("experience", []),
         projects=extracted.get("projects", []),
         education=extracted.get("education", []),
@@ -116,3 +122,51 @@ async def get_profile(user_id: str):
             "total": explicit_count,
         },
     )
+
+
+@router.get("/profile/{user_id}/roles", response_model=RoleFitResponse)
+async def get_role_fit(user_id: str, _: dict = Depends(verify_clerk_token)):
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user_id format")
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(Resume)
+            .where(Resume.user_id == uid)
+            .order_by(Resume.ingested_at.desc())
+            .limit(1)
+        )
+        resume = result.scalar_one_or_none()
+
+    if not resume:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    roles_raw = (resume.extracted_json or {}).get("role_recommendations", [])
+    roles = [RoleMatch(**r) for r in roles_raw if isinstance(r, dict)]
+    return RoleFitResponse(user_id=user_id, roles=roles)
+
+
+@router.get("/profile/{user_id}/completeness", response_model=ProfileCompletenessResponse)
+async def get_profile_completeness(user_id: str, _: dict = Depends(verify_clerk_token)):
+    try:
+        uid = uuid.UUID(user_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid user_id format")
+
+    async with get_session() as session:
+        result = await session.execute(
+            select(Resume)
+            .where(Resume.user_id == uid)
+            .order_by(Resume.ingested_at.desc())
+            .limit(1)
+        )
+        resume = result.scalar_one_or_none()
+
+    if not resume:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    data = calculate_completeness(resume.extracted_json or {}, resume.enriched_json)
+
+    return ProfileCompletenessResponse(user_id=user_id, **data)

@@ -1,0 +1,164 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* shadcn tokens — mapped to FirstKnock palette */
+  --background: #ececea;
+  --foreground: #14161b;
+  --card: #fcfcfb;
+  --card-foreground: #14161b;
+  --popover: #fcfcfb;
+  --popover-foreground: #14161b;
+  --primary: #14161b;
+  --primary-foreground: #ffffff;
+  --secondary: #f5f5f3;
+  --secondary-foreground: #14161b;
+  --muted: #f0f0ed;
+  --muted-foreground: #777a82;
+  --accent: #f5f5f3;
+  --accent-foreground: #14161b;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #eceae6;
+  --input: #eceae6;
+  --ring: #14161b;
+  --chart-1: #ef7b2e;
+  --chart-2: #2f6af0;
+  --chart-3: #14a05a;
+  --chart-4: #e6457f;
+  --chart-5: #777a82;
+  --radius: 0.875rem;
+  --sidebar: #fcfcfb;
+  --sidebar-foreground: #14161b;
+  --sidebar-primary: #14161b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f5f3;
+  --sidebar-accent-foreground: #14161b;
+  --sidebar-border: #eceae6;
+  --sidebar-ring: #14161b;
+
+  /* FirstKnock surface tokens */
+  --fk-outer:   #d4d3d1;
+  --fk-page:    #ececea;
+  --fk-card:    #fcfcfb;
+  --fk-card-2:  #f5f5f3;
+  --fk-well:    #f0f0ed;
+
+  /* FirstKnock ink tokens */
+  --fk-ink:   #14161b;
+  --fk-ink-2: #43464d;
+  --fk-ink-3: #777a82;
+  --fk-ink-4: #a7aab1;
+  --fk-ink-5: #cdcfd4;
+
+  /* FirstKnock line tokens */
+  --fk-line:   #eceae6;
+  --fk-line-2: #e3e1dc;
+
+  /* FirstKnock brand + accent */
+  --fk-brand:     #ef7b2e;
+  --fk-green:     #14a05a;
+  --fk-green-bg:  #dcf3e4;
+  --fk-blue:      #2f6af0;
+  --fk-blue-bg:   #dbe7ff;
+  --fk-pink:      #e6457f;
+  --fk-pink-bg:   #fcdfeb;
+
+  /* FirstKnock radius */
+  --fk-radius:    0.875rem;
+  --fk-radius-lg: 1.25rem;
+  --fk-radius-xl: 1.5rem;
+
+  /* FirstKnock shadows */
+  --fk-shadow:    0 1px 2px rgba(20,22,27,.04), 0 8px 24px rgba(20,22,27,.05);
+  --fk-shadow-sm: 0 1px 2px rgba(20,22,27,.05);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+/* FirstKnock utility classes */
+.fk-mono {
+  font-family: var(--font-geist-mono), monospace;
+}
+
+.fk-card {
+  background: var(--fk-card);
+  border: 1px solid var(--fk-line);
+  border-radius: var(--fk-radius-lg);
+  box-shadow: var(--fk-shadow);
+}
+
+.striped-bar-fill {
+  position: relative;
+  overflow: hidden;
+}
+.striped-bar-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 4px,
+    rgba(255,255,255,0.35) 4px,
+    rgba(255,255,255,0.35) 7px
+  );
+}
+
+@keyframes fadeSlideIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }

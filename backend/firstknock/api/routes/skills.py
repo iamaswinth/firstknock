@@ -1,5 +1,6 @@
 import structlog
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from firstknock.api.auth import verify_clerk_token
 from firstknock.api.schemas import SkillsResponse, SkillItem
 from firstknock.pipeline.graph.client import get_driver
 from firstknock.pipeline.graph.queries import GET_ALL_SKILLS
@@ -9,7 +10,7 @@ logger = structlog.get_logger()
 
 
 @router.get("/skills/{user_id}", response_model=SkillsResponse)
-async def get_skills(user_id: str):
+async def get_skills(user_id: str, _: dict = Depends(verify_clerk_token)):
     try:
         driver = await get_driver()
         async with driver.session(database="memgraph") as session:

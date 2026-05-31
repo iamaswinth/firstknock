@@ -50,6 +50,9 @@ dependencies = [
     "structlog>=24.1.0",
     "tenacity>=8.2.0",
     "python-multipart>=0.0.9",
+
+    # Auth — Clerk JWT verification (RS256 via JWKS)
+    "PyJWT[crypto]>=2.8.0",
 ]
 
 [project.optional-dependencies]

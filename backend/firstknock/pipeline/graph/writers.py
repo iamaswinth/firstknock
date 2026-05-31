@@ -231,12 +231,13 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
         github = enriched_json.get("github", {})
         profile = github.get("profile", {})
         if profile.get("followers") is not None or profile.get("public_repos") is not None:
-            await session.run(
+            r = await session.run(
                 SET_PERSON_GITHUB_STATS,
                 person_id=user_id,
                 followers=profile.get("followers", 0),
                 public_repos=profile.get("public_repos", 0),
             )
+            await r.consume()
 
         for repo in github.get("pinned_repos", []):
             project_id = repo["matched_project_id"]
