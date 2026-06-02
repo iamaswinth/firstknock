@@ -1,7 +1,10 @@
 "use client"
+import { Check, Loader2 } from "lucide-react"
 
-const SYNC_STAGES = ["parse", "normalize", "extract", "resolve", "persist", "graph"]
-const ASYNC_STAGES = ["enrichment", "inference", "embedding"]
+const ALL_STAGES = [
+  "parse", "normalize", "extract", "resolve", "persist",
+  "graph", "inference", "enrichment", "embedding",
+]
 
 const STAGE_LABELS: Record<string, string> = {
   parse:      "Parsing document",
@@ -10,9 +13,25 @@ const STAGE_LABELS: Record<string, string> = {
   resolve:    "Resolving entities",
   persist:    "Saving to database",
   graph:      "Building graph",
-  enrichment: "Enriching from GitHub & companies",
   inference:  "Inferring hidden skills",
+  enrichment: "Enriching from GitHub & companies",
   embedding:  "Generating embeddings",
+}
+
+// Maps backend Resume.status → which stages are done and which is currently active.
+// "enriched" is the terminal status set by the enrichment Celery task.
+const STATUS_PROGRESS: Record<string, { done: string[]; active: string | null }> = {
+  queued:        { done: [],                                                          active: null },
+  parsing:       { done: [],                                                          active: "parse" },
+  extracting:    { done: ["parse", "normalize"],                                      active: "extract" },
+  resolving:     { done: ["parse", "normalize", "extract"],                          active: "resolve" },
+  persisting:    { done: ["parse", "normalize", "extract", "resolve"],               active: "persist" },
+  graph_building:{ done: ["parse", "normalize", "extract", "resolve", "persist"],    active: "graph" },
+  inferring:     { done: ["parse", "normalize", "extract", "resolve", "persist", "graph"],           active: "inference" },
+  enriching:     { done: ["parse", "normalize", "extract", "resolve", "persist", "graph", "inference"], active: "enrichment" },
+  enriched:      { done: ALL_STAGES,                                                  active: null },
+  // legacy / fallback values
+  extracted:     { done: ["parse", "normalize", "extract", "resolve", "persist"],    active: "graph" },
 }
 
 interface ProcessingStatusProps {
@@ -20,18 +39,15 @@ interface ProcessingStatusProps {
 }
 
 export function ProcessingStatus({ status }: ProcessingStatusProps) {
-  const enriched = status === "enriched"
-  // Sync stages are always complete by the time we start polling
-  const done = new Set(enriched ? [...SYNC_STAGES, ...ASYNC_STAGES] : SYNC_STAGES)
+  const progress = STATUS_PROGRESS[status] ?? { done: [], active: null }
+  const doneSet = new Set(progress.done)
 
   return (
     <div className="w-full flex flex-col gap-2">
-      {[...SYNC_STAGES, ...ASYNC_STAGES].map((stage, i) => {
-        const isDone = done.has(stage)
-        // First async stage is "active" (spinning) while enrichment is pending
-        const isActive = !enriched && stage === "enrichment"
-        // Later async stages are queued
-        const isQueued = !enriched && ASYNC_STAGES.slice(1).includes(stage)
+      {ALL_STAGES.map((stage) => {
+        const isDone   = doneSet.has(stage)
+        const isActive = progress.active === stage
+        const isQueued = !isDone && !isActive
 
         return (
           <div key={stage} className="flex items-center gap-3">
@@ -66,18 +82,16 @@ export function ProcessingStatus({ status }: ProcessingStatusProps) {
 
 function CheckIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="7" fill="var(--fk-green-bg)" />
-      <path d="M5 8l2 2 4-4" stroke="var(--fk-green)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    <div style={{
+      width: 16, height: 16, borderRadius: "50%",
+      background: "var(--fk-green-bg)",
+      display: "grid", placeItems: "center",
+    }}>
+      <Check size={10} strokeWidth={2} color="var(--fk-green)" />
+    </div>
   )
 }
 
 function SpinnerIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" className="animate-spin">
-      <circle cx="8" cy="8" r="6" stroke="var(--fk-line-2)" strokeWidth="2" fill="none" />
-      <path d="M8 2a6 6 0 0 1 6 6" stroke="var(--fk-brand)" strokeWidth="2" strokeLinecap="round" fill="none" />
-    </svg>
-  )
+  return <Loader2 size={16} strokeWidth={2} color="var(--fk-brand)" className="animate-spin" />
 }

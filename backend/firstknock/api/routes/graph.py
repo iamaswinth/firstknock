@@ -8,6 +8,7 @@ from firstknock.api.schemas import (
     GraphResponse, GraphNode, GraphLink, GraphCommunity,
     AnalyticsResponse, CareerEntry, BridgeSkill, InferredSkillDetail, SkillCommunity,
     CareerTimelineResponse, TimelineEvent, CompanyDetail,
+    SkillContextNode, SkillContextLink, SkillContextResponse,
 )
 from firstknock.pipeline.graph.client import get_driver
 from firstknock.pipeline.graph.queries import (
@@ -18,6 +19,7 @@ from firstknock.pipeline.graph.queries import (
     GET_PERSON_NODE,
     GET_CAREER_WORKED_AT,
     GET_CAREER_STUDIED_AT,
+    GET_SKILL_CONTEXT,
 )
 from firstknock.pipeline.persistence.db import get_session
 from firstknock.pipeline.persistence.models import Resume, User
@@ -175,6 +177,74 @@ async def get_graph(user_id: str, _: dict = Depends(verify_clerk_token)):
         logger.debug("louvain_unavailable", error=str(exc))
 
     return GraphResponse(nodes=list(nodes.values()), links=links, communities=communities)
+
+
+# ── /skill-context/{user_id} ─────────────────────────────────────────────────
+
+@router.get("/skill-context/{user_id}", response_model=SkillContextResponse)
+async def get_skill_context(user_id: str, _: dict = Depends(verify_clerk_token)):
+    try:
+        driver = await get_driver()
+    except Exception:
+        raise HTTPException(status_code=503, detail="Graph database unavailable")
+
+    nodes: dict[str, SkillContextNode] = {}
+    links: list[SkillContextLink] = []
+
+    try:
+        async with driver.session(database="memgraph") as session:
+            ctx_r = await session.run(GET_SKILL_CONTEXT, person_id=user_id)
+            ctx_rows = await ctx_r.data()
+
+            pnode_r = await session.run(GET_PERSON_NODE, person_id=user_id)
+            pnode = await pnode_r.single()
+    except Exception as exc:
+        logger.warning("skill_context_fetch_failed", user_id=user_id, error=str(exc))
+        raise HTTPException(status_code=503, detail="Graph query failed")
+
+    if not ctx_rows:
+        raise HTTPException(status_code=404, detail="No graph data found for this user")
+
+    # Person node — seeded first so name can be filled from rows
+    nodes[user_id] = SkillContextNode(
+        id=user_id,
+        name="",
+        type="Person",
+        val=20.0,
+        properties=dict(pnode) if pnode else {},
+    )
+
+    for row in ctx_rows:
+        src_labels = row.get("src_labels") or []
+        src_props  = row.get("src_props")  or {}
+        rel_type   = row.get("rel_type", "")
+        rel_props  = row.get("rel_props")  or {}
+        tgt_labels = row.get("tgt_labels") or []
+        tgt_props  = row.get("tgt_props")  or {}
+
+        src_type = _node_type_from_labels(src_labels)
+        src_id   = _node_id(src_props, src_type)
+
+        if src_id not in nodes:
+            nodes[src_id] = _make_skill_context_node(src_id, src_props, src_type)
+        elif src_type == "Person" and src_props.get("name"):
+            nodes[src_id].name = src_props["name"]
+
+        tgt_type = _node_type_from_labels(tgt_labels)
+        tgt_id   = _node_id(tgt_props, tgt_type)
+        if tgt_id not in nodes:
+            nodes[tgt_id] = _make_skill_context_node(tgt_id, tgt_props, tgt_type)
+
+        # Merge education details (degree, field, years) from relationship into Institution node
+        if rel_type == "STUDIED_AT" and tgt_type == "Institution":
+            for key in ("degree", "field", "start_year", "end_year"):
+                if rel_props.get(key) is not None:
+                    nodes[tgt_id].properties[key] = rel_props[key]
+
+        if rel_type in ("WORKED_AT", "BUILT", "USED_SKILL", "USES", "STUDIED_AT"):
+            links.append(SkillContextLink(source=src_id, target=tgt_id, type=rel_type))
+
+    return SkillContextResponse(nodes=list(nodes.values()), links=links)
 
 
 # ── /analytics/{user_id} ─────────────────────────────────────────────────────
@@ -583,5 +653,20 @@ def _make_node(node_id: str, node: dict, node_type: str, skill_meta: dict) -> Gr
         val=val,
         confidence=confidence,
         source_type=source_type,
+        properties={k: v for k, v in node.items() if k not in ("name", "person_id", "project_id")},
+    )
+
+
+def _make_skill_context_node(node_id: str, node: dict, node_type: str) -> SkillContextNode:
+    name = node.get("name", node_id)
+    val_map = {"Person": 20.0, "Company": 9.0, "Project": 8.0, "Skill": 7.0, "Institution": 7.0}
+    val = val_map.get(node_type, 5.0)
+    if node_type == "Person":
+        name = node.get("name", "")
+    return SkillContextNode(
+        id=node_id,
+        name=name,
+        type=node_type,
+        val=val,
         properties={k: v for k, v in node.items() if k not in ("name", "person_id", "project_id")},
     )

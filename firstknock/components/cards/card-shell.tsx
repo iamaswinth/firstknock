@@ -1,3 +1,5 @@
+import { MoreHorizontal } from "lucide-react"
+
 interface CardShellProps {
   title?: string
   sub?: string
@@ -35,7 +37,7 @@ export function CardShell({ title, sub, right, children, className, id, style }:
                 {title}
               </div>
               {sub && (
-                <div style={{ fontSize: 13, color: "var(--fk-ink-3)", marginTop: 2 }}>{sub}</div>
+                <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 2 }}>{sub}</div>
               )}
             </div>
           )}
@@ -48,11 +50,7 @@ export function CardShell({ title, sub, right, children, className, id, style }:
             display: "grid", placeItems: "center",
             cursor: "pointer", background: "transparent", flexShrink: 0,
           }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="6" cy="12" r="1.6" fill="currentColor" />
-              <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-              <circle cx="18" cy="12" r="1.6" fill="currentColor" />
-            </svg>
+            <MoreHorizontal size={18} />
           </button>
         </div>
       )}

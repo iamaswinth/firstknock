@@ -39,7 +39,7 @@ class CompanyData(BaseModel):
     headquarters: str | None = None
 
 
-COMPANY_PROMPT = """Find company intelligence data for "{name}".
+COMPANY_PROMPT = """Find company intelligence data for "{name}"{context_hint}.
 
 Return JSON only — no explanation, no markdown fences:
 {{
@@ -68,13 +68,27 @@ Rules:
 - headcount and funding figures should be approximate (e.g. 500, 1000000)
 - total_funding_usd and last_round_amount_usd must be raw integers (no commas, no $)"""
 
+FOUNDERS_PROMPT = """Who are the founders and current CEO of "{name}"{context_hint}?
 
-async def _query_perplexity(company_name: str) -> CompanyData:
+Return JSON only — no explanation, no markdown fences:
+{{
+  "founders": ["list of founder full names"],
+  "ceo": "current CEO full name or null"
+}}
+
+Rules:
+- Only include founders you are confident about from reliable sources
+- Return empty array for founders if you cannot find reliable data
+- Do NOT fabricate or guess names"""
+
+
+async def _query_perplexity(company_name: str, hint: str = "") -> CompanyData:
     if not settings.perplexity_api_key:
         logger.warning("perplexity_api_key_missing")
         return CompanyData()
 
-    prompt = COMPANY_PROMPT.format(name=company_name)
+    context_hint = f" (context: {hint})" if hint else ""
+    prompt = COMPANY_PROMPT.format(name=company_name, context_hint=context_hint)
 
     try:
         async with httpx.AsyncClient(timeout=30) as client:
@@ -125,16 +139,77 @@ async def _query_perplexity(company_name: str) -> CompanyData:
         return CompanyData()
 
 
-async def enrich_companies(company_names: list[str]) -> dict[str, dict]:
+async def _query_founders_only(company_name: str, hint: str = "") -> tuple[list[str], str | None]:
+    """Targeted retry to fetch founders/CEO when the main call returned empty."""
+    if not settings.perplexity_api_key:
+        return [], None
+
+    context_hint = f" (context: {hint})" if hint else ""
+    prompt = FOUNDERS_PROMPT.format(name=company_name, context_hint=context_hint)
+
+    try:
+        async with httpx.AsyncClient(timeout=20) as client:
+            resp = await client.post(
+                PERPLEXITY_URL,
+                headers={
+                    "Authorization": f"Bearer {settings.perplexity_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "sonar",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 128,
+                    "temperature": 0.1,
+                },
+            )
+            resp.raise_for_status()
+            content = resp.json()["choices"][0]["message"]["content"].strip()
+
+            if content.startswith("```"):
+                content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+
+            raw = json.loads(content)
+            founders = [f for f in (raw.get("founders") or []) if f]
+            ceo = raw.get("ceo") or None
+            return founders, ceo
+
+    except Exception as exc:
+        logger.warning("perplexity_founders_retry_failed", company=company_name, error=str(exc))
+        return [], None
+
+
+async def enrich_companies(
+    company_names: list[str],
+    hints: dict[str, str] | None = None,
+) -> dict[str, dict]:
     """
     Enrich a list of company names with company intelligence via Perplexity AI.
-    Returns {company_name: CompanyData dict}
+    Returns {company_name: CompanyData dict}.
+
+    hints: optional {company_name: "industry, location or website"} to disambiguate
+           companies that share a common name.
     """
+    hints = hints or {}
     results: dict[str, dict] = {}
+
     for name in company_names:
         if not name:
             continue
-        data = await _query_perplexity(name)
+
+        hint = hints.get(name, "")
+        data = await _query_perplexity(name, hint)
+
+        # Retry founders specifically when the main call returned empty but the
+        # company appears real (has a website or funding data).
+        if not data.founders and (data.website or data.total_funding_usd):
+            logger.info("company_founders_retry", company=name)
+            retry_hint = hint or data.website or data.industry or ""
+            founders, ceo = await _query_founders_only(name, retry_hint)
+            if founders:
+                data.founders = founders
+            if not data.ceo and ceo:
+                data.ceo = ceo
+
         results[name] = data.model_dump()
         logger.info(
             "company_enriched",

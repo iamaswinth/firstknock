@@ -12,7 +12,7 @@ import { MetricCard } from "@/components/cards/metric-card"
 import { MatchesFoundCard, EmailsSentCard, RepliesCard } from "@/components/cards/outreach-stats"
 import { useProfile } from "@/lib/api/hooks/use-profile"
 import { useSkills } from "@/lib/api/hooks/use-skills"
-import { useGraph } from "@/lib/api/hooks/use-graph"
+import { useSkillContext } from "@/lib/api/hooks/use-skill-context"
 import { useAnalytics } from "@/lib/api/hooks/use-analytics"
 import { useRoles } from "@/lib/api/hooks/use-roles"
 import { useCareerTimeline } from "@/lib/api/hooks/use-career-timeline"
@@ -27,7 +27,7 @@ interface DashboardContentProps {
 export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDelete }: DashboardContentProps) {
   const profile      = useProfile(userId)
   const skills       = useSkills(userId)
-  const graph        = useGraph(userId)
+  const skillContext = useSkillContext(userId)
   const analytics    = useAnalytics(userId)
   const roles        = useRoles(userId)
   const careerTl     = useCareerTimeline(userId)
@@ -47,7 +47,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
 
   const pData = profile.data
   const sData = skills.data
-  const gData = graph.data
+  const gData = skillContext.data
   const aData = analytics.data
   const rData = roles.data
 
@@ -83,7 +83,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
           {/* Row 1 */}
           <div style={{ gridColumn: "span 8", display: "flex" }}>
             {gData ? (
-              <SkillGraph nodes={gData.nodes} links={gData.links} communities={gData.communities} />
+              <SkillGraph nodes={gData.nodes} links={gData.links} />
             ) : (
               <GraphPlaceholder />
             )}

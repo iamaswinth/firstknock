@@ -25,14 +25,38 @@ async def get_or_create_user(email: str) -> uuid.UUID:
         return result.scalar_one()
 
 
+async def create_resume_stub(user_email: str, source_type: str) -> tuple[uuid.UUID, uuid.UUID]:
+    """Create User (upsert) + Resume with status='queued'. Returns (user_id, resume_id)."""
+    user_id = await get_or_create_user(user_email)
+    async with get_session() as session:
+        resume = Resume(
+            resume_id=uuid.uuid4(),
+            user_id=user_id,
+            source_type=source_type,
+            status="queued",
+        )
+        session.add(resume)
+        await session.flush()
+        return user_id, resume.resume_id
+
+
 async def save_extracted_resume(
     user_email: str,
     source_type: str,
     raw_text: str,
     extracted_json: dict,
+    resume_id: uuid.UUID | None = None,
 ) -> tuple[uuid.UUID, uuid.UUID]:
     user_id = await get_or_create_user(user_email)
     async with get_session() as session:
+        if resume_id is not None:
+            result = await session.execute(select(Resume).where(Resume.resume_id == resume_id))
+            resume = result.scalar_one()
+            resume.raw_text = raw_text
+            resume.extracted_json = extracted_json
+            resume.status = "extracted"
+            resume.updated_at = _now()
+            return resume.user_id, resume.resume_id
         resume = Resume(
             resume_id=uuid.uuid4(),
             user_id=user_id,

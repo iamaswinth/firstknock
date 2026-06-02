@@ -26,7 +26,8 @@
     ],
     "additionalDirectories": [
       "C:\\Users\\iamas\\Storage\\FIRSTKNOCK\\firstknock\\app\\processing",
-      "c:\\Users\\iamas\\Storage\\FIRSTKNOCK\\firstknock\\app\\login"
+      "c:\\Users\\iamas\\Storage\\FIRSTKNOCK\\firstknock\\app\\login",
+      "C:\\Users\\iamas\\.claude\\plans"
     ]
   }
 }

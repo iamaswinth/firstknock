@@ -1,5 +1,6 @@
 "use client"
 import { useState, useRef, DragEvent } from "react"
+import { Upload } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { apiClient } from "@/lib/api/client"
 import type { IngestResponse } from "@/lib/api/types"
@@ -115,10 +116,7 @@ function UploadIcon() {
       className="w-12 h-12 rounded-2xl flex items-center justify-center"
       style={{ background: "var(--fk-card-2)" }}
     >
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--fk-ink-3)" strokeWidth="1.5">
-        <path d="M10 13V4M7 7l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M3 13v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
-      </svg>
+      <Upload size={20} strokeWidth={1.5} color="var(--fk-ink-3)" />
     </div>
   )
 }

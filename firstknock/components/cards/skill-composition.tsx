@@ -1,3 +1,4 @@
+import { ChevronUp } from "lucide-react"
 import { CardShell } from "./card-shell"
 import type { SkillsResponse } from "@/lib/api/types"
 
@@ -35,14 +36,12 @@ export function SkillComposition({ skills }: SkillCompositionProps) {
           fontSize: 13, fontWeight: 600, color: "var(--fk-green)",
           background: "var(--fk-card)", boxShadow: "var(--fk-shadow-sm)", border: "1px solid var(--fk-line)",
         }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-            <path d="M5 15l7-7 7 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronUp size={12} strokeWidth={2.2} />
           {inferredCount} inferred
         </span>
       </div>
 
-      <div style={{ fontSize: 13, color: "var(--fk-ink-3)", marginTop: 6 }}>
+      <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 6 }}>
         {explicit.length} explicit · {inferredCount} inferred across {communities || 4} communities
       </div>
 
@@ -51,7 +50,7 @@ export function SkillComposition({ skills }: SkillCompositionProps) {
         {cats.map((c) => (
           <div key={c.label} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between" }}>
-              <span style={{ fontSize: 13.5, color: "var(--fk-ink-2)", fontWeight: 500 }}>{c.label}</span>
+              <span style={{ fontSize: 14, color: "var(--fk-ink-2)", fontWeight: 500 }}>{c.label}</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: "var(--fk-ink)" }}>{c.n}</span>
             </div>
             <div style={{ height: 12, borderRadius: 999, background: "var(--fk-well)", overflow: "hidden" }}>

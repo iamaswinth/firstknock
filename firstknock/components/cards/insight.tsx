@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react"
 import type { BridgeSkill } from "@/lib/api/types"
 
 interface InsightProps { bridgeSkills: BridgeSkill[] | null }
@@ -21,13 +22,11 @@ export function Insight({ bridgeSkills }: InsightProps) {
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "5px 11px", borderRadius: 999,
-            fontSize: 12, fontWeight: 600, color: "#fff",
+            fontSize: 13, fontWeight: 600, color: "#fff",
             background: "rgba(255,255,255,0.18)", backdropFilter: "blur(4px)",
             border: "1px solid rgba(255,255,255,0.25)",
           }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 3l1.6 5.4L19 10l-5.4 1.6L12 17l-1.6-5.4L5 10l5.4-1.6L12 3Z" />
-            </svg>
+            <Sparkles size={13} />
             Insight
           </span>
         </div>
@@ -40,12 +39,12 @@ export function Insight({ bridgeSkills }: InsightProps) {
             <div style={{ fontSize: 18, fontWeight: 600, marginTop: 14, lineHeight: 1.3 }}>
               {top.name} is your strongest bridge skill.
             </div>
-            <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 8, color: "rgba(255,255,255,0.85)" }}>
+            <div style={{ fontSize: 14, lineHeight: 1.5, marginTop: 8, color: "rgba(255,255,255,0.85)" }}>
               It links your skill communities — highest betweenness centrality in your graph.
             </div>
           </>
         ) : (
-          <p style={{ marginTop: "auto", fontSize: 13, color: "rgba(255,255,255,0.7)" }}>
+          <p style={{ marginTop: "auto", fontSize: 14, color: "rgba(255,255,255,0.7)" }}>
             Graph analysis pending. Re-ingest to generate insights.
           </p>
         )}

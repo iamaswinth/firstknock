@@ -11,6 +11,12 @@ class IngestResponse(BaseModel):
     stages_pending: list[str]
 
 
+class IngestQueuedResponse(BaseModel):
+    resume_id: str
+    user_id: str
+    status: str   # always "queued" on initial response
+
+
 class DeleteResumeResponse(BaseModel):
     resume_id: str
     user_id: str
@@ -150,6 +156,25 @@ class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     links: list[GraphLink]
     communities: list[GraphCommunity]
+
+
+class SkillContextNode(BaseModel):
+    id: str
+    name: str
+    type: Literal["Person", "Company", "Project", "Skill", "Institution"]
+    val: float = 5.0
+    properties: dict = {}
+
+
+class SkillContextLink(BaseModel):
+    source: str
+    target: str
+    type: Literal["WORKED_AT", "BUILT", "USED_SKILL", "USES", "STUDIED_AT"]
+
+
+class SkillContextResponse(BaseModel):
+    nodes: list[SkillContextNode]
+    links: list[SkillContextLink]
 
 
 # ── Analytics ─────────────────────────────────────────────────────────────────

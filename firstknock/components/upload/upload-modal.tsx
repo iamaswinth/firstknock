@@ -1,5 +1,6 @@
 "use client"
 import { useState, useRef, useEffect, DragEvent } from "react"
+import { X, Upload, Check } from "lucide-react"
 import { Dialog } from "@base-ui/react/dialog"
 import { useAuth } from "@/providers/auth-provider"
 import { useAuth as useClerkAuth } from "@clerk/nextjs"
@@ -27,7 +28,7 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [resumeId, setResumeId] = useState<string | null>(null)
-  const [resumeStatus, setResumeStatus] = useState("extracted")
+  const [resumeStatus, setResumeStatus] = useState("queued")
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset state when modal opens
@@ -37,12 +38,12 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
       setFile(null)
       setError(null)
       setResumeId(null)
-      setResumeStatus("extracted")
+      setResumeStatus("queued")
       setLoading(false)
     }
   }, [open])
 
-  // Poll for enrichment completion
+  // Poll Resume.status until enrichment completes or pipeline fails
   useEffect(() => {
     if (step !== "processing" || !resumeId) return
     const id = setInterval(async () => {
@@ -52,10 +53,13 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
         if (res.status === "enriched") {
           clearInterval(id)
           saveResume({ userId: res.user_id, resumeId })
-          // Invalidate all profile queries so dashboard re-fetches fresh data
           queryClient.invalidateQueries()
           setStep("done")
           setTimeout(() => onOpenChange(false), 1800)
+        } else if (res.status === "failed") {
+          clearInterval(id)
+          setError("Processing failed — please try uploading again.")
+          setStep("upload")
         }
       } catch { /* keep polling */ }
     }, 3000)
@@ -199,9 +203,7 @@ function UploadStep({ file, setFile, dragging, setDragging, onDrop, inputRef, em
             color: "var(--fk-ink-3)", cursor: "pointer", flexShrink: 0,
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
+          <X size={14} strokeWidth={2} />
         </button>
       </div>
 
@@ -235,10 +237,7 @@ function UploadStep({ file, setFile, dragging, setDragging, onDrop, inputRef, em
           display: "grid", placeItems: "center",
           margin: "0 auto 12px",
         }}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="var(--fk-ink-3)" strokeWidth="1.5">
-            <path d="M10 13V4M7 7l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M3 13v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
-          </svg>
+          <Upload size={20} strokeWidth={1.5} color="var(--fk-ink-3)" />
         </div>
         {file ? (
           <>
@@ -314,7 +313,7 @@ function ProcessingStep({ status }: { status: string }) {
           Building your graph
         </p>
         <p style={{ fontSize: 13, color: "var(--fk-ink-3)", margin: "4px 0 0" }}>
-          This takes about 20–30 seconds.
+          Hang tight — usually done in under a minute.
         </p>
       </div>
 
@@ -346,9 +345,7 @@ function DoneStep({ onClose }: { onClose: () => void }) {
         background: "var(--fk-green)",
         display: "grid", placeItems: "center",
       }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <path d="M5 12.5 10 17l9-10" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
+        <Check size={24} strokeWidth={2.4} color="#fff" />
       </div>
 
       <div style={{ textAlign: "center" }}>

@@ -192,7 +192,7 @@ export function CareerTimeline({ events, totalMonths }: CareerTimelineProps) {
         {showNow && (
           <div style={{ position: "absolute", left: `${nowPct}%`, top: 0, bottom: 0, width: 0, pointerEvents: "none" }}>
             <div style={{ position: "absolute", top: AXIS_H, bottom: 0, width: 1, background: "var(--fk-brand)", opacity: 0.6 }} />
-            <div style={{ position: "absolute", top: 2, transform: "translateX(-50%)", color: "var(--fk-brand)", fontSize: 11, fontWeight: 600 }}>
+            <div style={{ position: "absolute", top: 2, transform: "translateX(-50%)", color: "var(--fk-brand)", fontSize: 12, fontWeight: 600 }}>
               Now
             </div>
           </div>
@@ -210,7 +210,7 @@ export function CareerTimeline({ events, totalMonths }: CareerTimelineProps) {
                 top: 0,
                 transform: "translateX(3px)",
                 color: "var(--fk-ink-3)",
-                fontSize: 11,
+                fontSize: 13,
                 fontWeight: 600,
               }}
             >
@@ -230,7 +230,7 @@ export function CareerTimeline({ events, totalMonths }: CareerTimelineProps) {
                 top: 18,
                 transform: "translateX(3px)",
                 color: "var(--fk-ink-4)",
-                fontSize: 10,
+                fontSize: 12,
               }}
             >
               {MONTH_ABBR[date.getMonth()]}
@@ -272,7 +272,7 @@ export function CareerTimeline({ events, totalMonths }: CareerTimelineProps) {
                     paddingInline: 8,
                     color: "#fff",
                     fontWeight: 500,
-                    fontSize: 11.5,
+                    fontSize: 12.5,
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     boxShadow: isSelected
@@ -283,7 +283,7 @@ export function CareerTimeline({ events, totalMonths }: CareerTimelineProps) {
                   }}
                 >
                   <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{b.label}</span>
-                  <span style={{ flexShrink: 0, opacity: 0.85, fontWeight: 600, fontSize: 10.5 }}>· {duration}</span>
+                  <span style={{ flexShrink: 0, opacity: 0.85, fontWeight: 600, fontSize: 11.5 }}>· {duration}</span>
                 </div>
               )
             })
@@ -295,7 +295,7 @@ export function CareerTimeline({ events, totalMonths }: CareerTimelineProps) {
                     left: 0,
                     top: headerTop,
                     color: "var(--fk-ink-3)",
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: 600,
                     textTransform: "uppercase",
                     letterSpacing: "0.04em",
@@ -343,7 +343,7 @@ function DetailPanel({ event, onClose }: { event: TimelineEvent; onClose: () => 
           <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fk-ink)", letterSpacing: "-0.01em" }}>
             {event.entity}
           </div>
-          <div style={{ fontSize: 12.5, color: "var(--fk-ink-3)", marginTop: 2 }}>
+          <div style={{ fontSize: 13, color: "var(--fk-ink-3)", marginTop: 2 }}>
             {event.type === "experience"
               ? event.label.split(" · ")[0]   // title part
               : event.field ?? event.label}
@@ -378,11 +378,11 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   if (!value) return null
   return (
     <div style={{ display: "flex", gap: 8, alignItems: "baseline" }}>
-      <span style={{ fontSize: 11, color: "var(--fk-ink-4)", fontWeight: 600, textTransform: "uppercase",
+      <span style={{ fontSize: 13, color: "var(--fk-ink-4)", fontWeight: 600, textTransform: "uppercase",
         letterSpacing: "0.04em", minWidth: 90, flexShrink: 0 }}>
         {label}
       </span>
-      <span style={{ fontSize: 13, color: "var(--fk-ink-2)" }}>{value}</span>
+      <span style={{ fontSize: 14, color: "var(--fk-ink-2)" }}>{value}</span>
     </div>
   )
 }
@@ -430,7 +430,7 @@ function CompanyDetailGrid({ detail: d, techStack }: { detail: CompanyDetail; te
             <span
               key={s}
               style={{
-                fontSize: 11, fontWeight: 500,
+                fontSize: 12, fontWeight: 500,
                 padding: "2px 8px", borderRadius: 999,
                 background: "var(--fk-well)",
                 border: "1px solid var(--fk-line)",

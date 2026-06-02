@@ -176,6 +176,25 @@ export interface GraphResponse {
   communities: GraphCommunity[]
 }
 
+export interface SkillContextNode {
+  id: string
+  name: string
+  type: "Person" | "Company" | "Project" | "Skill" | "Institution"
+  val: number
+  properties: Record<string, unknown>
+}
+
+export interface SkillContextLink {
+  source: string
+  target: string
+  type: "WORKED_AT" | "BUILT" | "USED_SKILL" | "USES" | "STUDIED_AT"
+}
+
+export interface SkillContextResponse {
+  nodes: SkillContextNode[]
+  links: SkillContextLink[]
+}
+
 export interface CareerEntry {
   company: string
   title: string

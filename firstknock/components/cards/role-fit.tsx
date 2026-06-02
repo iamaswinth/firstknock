@@ -8,7 +8,7 @@ export function RoleFit({ roles }: { roles: RoleMatch[] }) {
   if (!roles.length) {
     return (
       <CardShell title="Role Fit" sub="AI-matched roles from your profile">
-        <p style={{ fontSize: 13, color: "var(--fk-ink-3)" }}>
+        <p style={{ fontSize: 14, color: "var(--fk-ink-3)" }}>
           Role analysis pending — try re-ingesting your résumé.
         </p>
       </CardShell>
@@ -35,7 +35,7 @@ export function RoleFit({ roles }: { roles: RoleMatch[] }) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fk-ink)" }}>{role.title}</div>
-                <div style={{ fontSize: 13, color: "var(--fk-ink-3)", lineHeight: 1.5, marginTop: 4 }}>
+                <div style={{ fontSize: 14, color: "var(--fk-ink-3)", lineHeight: 1.5, marginTop: 4 }}>
                   {role.reason}
                 </div>
               </div>

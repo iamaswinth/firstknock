@@ -6,6 +6,7 @@ app = Celery(
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
     include=[
+        "firstknock.pipeline.ingestion.task",
         "firstknock.pipeline.enrichment.tasks",
         "firstknock.pipeline.embedding.tasks",
     ],
@@ -18,4 +19,9 @@ app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     worker_prefetch_multiplier=1,
+    task_routes={
+        "ingestion.process":  {"queue": "ingestion"},
+        "enrichment.process": {"queue": "enrichment"},
+        "embedding.generate": {"queue": "embedding"},
+    },
 )

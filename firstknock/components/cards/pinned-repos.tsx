@@ -1,3 +1,4 @@
+import { FileText, Star } from "lucide-react"
 import { CardShell } from "./card-shell"
 import type { PinnedRepo } from "@/lib/api/types"
 
@@ -28,10 +29,7 @@ export function PinnedRepos({ repos, githubUser }: { repos: PinnedRepo[]; github
                   background: "var(--fk-card-2)", border: "1px solid var(--fk-line)",
                   color: "var(--fk-ink-2)", display: "grid", placeItems: "center", flexShrink: 0,
                 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                    <path d="M6 4h11a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2V4Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-                    <path d="M7 17h12M9 8h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-                  </svg>
+                  <FileText size={16} strokeWidth={1.7} />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -56,9 +54,7 @@ export function PinnedRepos({ repos, githubUser }: { repos: PinnedRepo[]; github
 
                 {/* Stars */}
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--fk-ink-3)" }}>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 4l2.3 5 5.4.5-4.1 3.6 1.2 5.3L12 21l-4.8 2.5 1.2-5.3L4.3 9.5 9.7 9 12 4Z" />
-                  </svg>
+                  <Star size={13} fill="currentColor" strokeWidth={0} />
                   {p.stars}
                 </span>
               </div>

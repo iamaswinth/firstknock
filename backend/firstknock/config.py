@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     env: str = "development"
     log_level: str = "INFO"
 
+    # Redis file storage (ingestion pipeline — bytes keyed by resume_id)
+    redis_file_key_prefix: str = "ingest:file:"
+    redis_file_ttl_seconds: int = 900   # 15 min — covers any queue backlog
+
     # Pipeline tuning
     extraction_model: str = "claude-sonnet-4-6"
     inference_model: str = "claude-haiku-4-5-20251001"

@@ -131,6 +131,17 @@ def process_enrichment(
         except Exception as exc:
             logger.warning("enrichment_graph_failed", person_id=person_id, error=str(exc))
 
+        # ── Dispatch embedding now that enrichment + graph are complete ───────
+        # Embedding reads project data from Memgraph, which is fully populated only
+        # after enrichment writes the final graph layer.
+        try:
+            from firstknock.pipeline.embedding.tasks import dispatch_embedding
+            resume = await get_resume_by_id(_uuid.UUID(resume_id))
+            dispatch_embedding(person_id, resume_id, resume.extracted_json or {})
+            logger.info("embedding_dispatched", person_id=person_id, resume_id=resume_id)
+        except Exception as exc:
+            logger.warning("embedding_dispatch_failed", person_id=person_id, error=str(exc))
+
         await close_driver()
         await dispose_engine()
 

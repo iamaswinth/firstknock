@@ -1,6 +1,7 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { Search, Bell } from "lucide-react"
 import { initials } from "@/lib/utils"
 import { useAuth } from "@/providers/auth-provider"
 
@@ -66,10 +67,7 @@ export function Nav({ name, profilePictureUrl, onUpload }: NavProps) {
           border: "1px solid var(--fk-line-2)", background: "var(--fk-card)",
           display: "grid", placeItems: "center", color: "var(--fk-ink-2)", cursor: "pointer",
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
-            <path d="m20 20-3-3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          </svg>
+          <Search size={18} strokeWidth={1.8} />
         </button>
 
         {/* Bell */}
@@ -79,10 +77,7 @@ export function Nav({ name, profilePictureUrl, onUpload }: NavProps) {
           display: "grid", placeItems: "center", color: "var(--fk-ink-2)", cursor: "pointer",
           position: "relative",
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6Z" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-            <path d="M10 20a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-          </svg>
+          <Bell size={18} strokeWidth={1.7} />
           <span style={{
             position: "absolute", top: 9, right: 10,
             width: 7, height: 7, borderRadius: "50%",

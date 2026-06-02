@@ -1,3 +1,6 @@
 1. in the dashboard we can use the apify linkedin data to extract the users profile
 
 2. i have to plan how with these data will be used to recommend jobs to the users
+
+3.projects card
+4.company enrichmment, sscrape the company website

@@ -2,10 +2,9 @@ import structlog
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from firstknock.api.auth import verify_clerk_token
-from firstknock.api.schemas import DeleteResumeResponse, IngestResponse
+from firstknock.api.schemas import DeleteResumeResponse, IngestQueuedResponse
 from firstknock.pipeline.graph.client import get_driver
 from firstknock.pipeline.graph.queries import DELETE_PERSON_AND_RELS
-from firstknock.pipeline.orchestrator import run_sync_ingestion
 from firstknock.pipeline.persistence.db import get_session
 from firstknock.pipeline.persistence.models import Resume, User
 
@@ -15,11 +14,11 @@ logger = structlog.get_logger()
 _SUPPORTED_TYPES = {"pdf", "docx"}
 
 
-@router.post("/ingest", response_model=IngestResponse)
+@router.post("/ingest", status_code=202, response_model=IngestQueuedResponse)
 async def ingest_resume(
     file: UploadFile = File(...),
     current_user: dict = Depends(verify_clerk_token),
-) -> IngestResponse:
+) -> IngestQueuedResponse:
     email: str = current_user["email"]
     if not email:
         raise HTTPException(status_code=400, detail="Could not resolve email from Clerk token")
@@ -29,21 +28,20 @@ async def ingest_resume(
         raise HTTPException(status_code=400, detail=f"Unsupported file type: .{suffix}")
 
     file_bytes = await file.read()
-    result = await run_sync_ingestion(file_bytes, suffix, email)
 
-    stages_complete = ["parse", "normalize", "extract", "resolve", "persist"]
-    stages_pending = ["enrichment", "inference", "embedding"]
-    if result.get("graph_written"):
-        stages_complete.append("graph")
-    else:
-        stages_pending.insert(0, "graph")
+    from firstknock.pipeline.persistence.postgres_writer import create_resume_stub
+    from firstknock.pipeline.ingestion.file_store import store_file
+    from firstknock.pipeline.ingestion.task import process_ingestion
 
-    return IngestResponse(
-        resume_id=str(result["resume_id"]),
-        user_id=str(result["user_id"]),
-        status=result["status"],
-        stages_complete=stages_complete,
-        stages_pending=stages_pending,
+    user_id, resume_id = await create_resume_stub(email, suffix)
+    await store_file(str(resume_id), file_bytes)
+    process_ingestion.apply_async(args=[str(resume_id), email, suffix], queue="ingestion")
+
+    logger.info("ingest_queued", resume_id=str(resume_id), email=email)
+    return IngestQueuedResponse(
+        resume_id=str(resume_id),
+        user_id=str(user_id),
+        status="queued",
     )
 
 
@@ -91,12 +89,12 @@ async def delete_resume(
     return DeleteResumeResponse(resume_id=resume_id, user_id=user_id, deleted=True)
 
 
-@router.post("/resume/{resume_id}/reingest", response_model=IngestResponse)
+@router.post("/resume/{resume_id}/reingest", status_code=202, response_model=IngestQueuedResponse)
 async def reingest_resume(
     resume_id: str,
     file: UploadFile = File(...),
     current_user: dict = Depends(verify_clerk_token),
-) -> IngestResponse:
+) -> IngestQueuedResponse:
     email: str = current_user["email"]
     if not email:
         raise HTTPException(status_code=400, detail="Could not resolve email from Clerk token")
@@ -123,19 +121,18 @@ async def reingest_resume(
     await _delete_resume_and_graph(resume)
 
     file_bytes = await file.read()
-    result = await run_sync_ingestion(file_bytes, suffix, email)
 
-    stages_complete = ["parse", "normalize", "extract", "resolve", "persist"]
-    stages_pending = ["enrichment", "inference", "embedding"]
-    if result.get("graph_written"):
-        stages_complete.append("graph")
-    else:
-        stages_pending.insert(0, "graph")
+    from firstknock.pipeline.persistence.postgres_writer import create_resume_stub
+    from firstknock.pipeline.ingestion.file_store import store_file
+    from firstknock.pipeline.ingestion.task import process_ingestion
 
-    return IngestResponse(
-        resume_id=str(result["resume_id"]),
-        user_id=str(result["user_id"]),
-        status=result["status"],
-        stages_complete=stages_complete,
-        stages_pending=stages_pending,
+    user_id, new_resume_id = await create_resume_stub(email, suffix)
+    await store_file(str(new_resume_id), file_bytes)
+    process_ingestion.apply_async(args=[str(new_resume_id), email, suffix], queue="ingestion")
+
+    logger.info("reingest_queued", resume_id=str(new_resume_id), email=email)
+    return IngestQueuedResponse(
+        resume_id=str(new_resume_id),
+        user_id=str(user_id),
+        status="queued",
     )

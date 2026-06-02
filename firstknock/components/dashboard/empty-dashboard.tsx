@@ -1,4 +1,5 @@
 "use client"
+import { Package, Upload } from "lucide-react"
 import { Nav } from "@/components/layout/nav"
 import { TitleBar } from "@/components/layout/title-bar"
 import { Footer } from "@/components/layout/footer"
@@ -62,10 +63,7 @@ export function EmptyDashboard({ name, onUpload }: EmptyDashboardProps) {
               boxShadow: "var(--fk-shadow)",
               display: "grid", placeItems: "center",
             }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--fk-ink-3)" strokeWidth="1.5">
-                <path d="M12 3.5l7 4v9l-7 4-7-4v-9l7-4Z" strokeLinejoin="round" />
-                <path d="M12 3.5v13M5 7.5l7 4 7-4" />
-              </svg>
+              <Package size={28} strokeWidth={1.5} color="var(--fk-ink-3)" />
             </div>
 
             {/* Text */}
@@ -90,10 +88,7 @@ export function EmptyDashboard({ name, onUpload }: EmptyDashboardProps) {
                 boxShadow: "0 2px 8px rgba(20,22,27,0.18)",
               }}
             >
-              <svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M10 13V4M7 7l3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M3 13v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
-              </svg>
+              <Upload size={15} strokeWidth={1.8} />
               Upload résumé
             </button>
           </div>

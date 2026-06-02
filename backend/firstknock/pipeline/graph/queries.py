@@ -337,6 +337,41 @@ RETURN labels(p) AS src_labels, properties(p) AS src_props,
        labels(i) AS tgt_labels, properties(i) AS tgt_props
 """
 
+GET_SKILL_CONTEXT = """
+MATCH (p:Person {person_id: $person_id})-[w:WORKED_AT]->(c:Company)
+RETURN labels(p) AS src_labels, properties(p) AS src_props,
+       type(w) AS rel_type, properties(w) AS rel_props,
+       labels(c) AS tgt_labels, properties(c) AS tgt_props
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)-[u:USED_SKILL]->(s:Skill)
+RETURN labels(c) AS src_labels, properties(c) AS src_props,
+       type(u) AS rel_type, properties(u) AS rel_props,
+       labels(s) AS tgt_labels, properties(s) AS tgt_props
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[b:BUILT]->(proj:Project)
+RETURN labels(p) AS src_labels, properties(p) AS src_props,
+       type(b) AS rel_type, properties(b) AS rel_props,
+       labels(proj) AS tgt_labels, properties(proj) AS tgt_props
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[:BUILT]->(proj:Project)-[u:USES]->(s:Skill)
+RETURN labels(proj) AS src_labels, properties(proj) AS src_props,
+       type(u) AS rel_type, properties(u) AS rel_props,
+       labels(s) AS tgt_labels, properties(s) AS tgt_props
+
+UNION ALL
+
+MATCH (p:Person {person_id: $person_id})-[st:STUDIED_AT]->(i:Institution)
+RETURN labels(p) AS src_labels, properties(p) AS src_props,
+       type(st) AS rel_type, properties(st) AS rel_props,
+       labels(i) AS tgt_labels, properties(i) AS tgt_props
+"""
+
 GET_PERSON_SKILL_COOCCURRENCE = """
 MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL]->(s1:Skill)
 MATCH (s1)-[r:CO_OCCURS_WITH]-(s2:Skill)

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import { Link2, Calendar, RotateCcw, ChevronDown, Upload, Trash2 } from "lucide-react"
 
 interface TitleBarProps {
   syncDate?: string
@@ -40,9 +41,7 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
           border: "1px solid var(--fk-line-2)", background: "var(--fk-card)",
           display: "grid", placeItems: "center", color: "var(--fk-ink-3)", cursor: "pointer",
         }}>
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M10 13a4 4 0 0 0 5.66 0l2-2a4 4 0 1 0-5.66-5.66l-1 1M14 11a4 4 0 0 0-5.66 0l-2 2A4 4 0 1 0 6 18.66l1-1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <Link2 size={15} strokeWidth={1.7} />
         </button>
       </div>
 
@@ -50,10 +49,7 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
 
       {/* Synced pill */}
       <button style={pillStyle}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-          <rect x="4" y="5" width="16" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
-          <path d="M4 9h16M9 3v4M15 3v4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-        </svg>
+        <Calendar size={15} strokeWidth={1.7} />
         <span>Synced · {syncDate}</span>
       </button>
 
@@ -66,16 +62,9 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
           onClick={() => { setMenuOpen((v) => !v); setConfirmDelete(false) }}
           title="Manage resume"
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-            <path d="M20 11a8 8 0 1 0-.5 3.5M20 5v6h-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <RotateCcw size={15} strokeWidth={1.7} />
           <span>{resumeName}</span>
-          <svg
-            width="14" height="14" viewBox="0 0 24 24" fill="none"
-            style={{ transform: menuOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}
-          >
-            <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <ChevronDown size={14} strokeWidth={1.8} style={{ transform: menuOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
         </button>
 
         {/* Dropdown menu */}
@@ -101,9 +90,7 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
               onClick={() => { setMenuOpen(false); onReingest?.() }}
               style={menuItemStyle}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <Upload size={14} strokeWidth={1.7} />
               Update resume
             </button>
 
@@ -112,9 +99,7 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
               onClick={() => { setMenuOpen(false); setConfirmDelete(true) }}
               style={{ ...menuItemStyle, color: "var(--fk-pink)" }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                <path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
+              <Trash2 size={14} strokeWidth={1.7} />
               Delete resume
             </button>
           </div>
