@@ -6,15 +6,25 @@ from .prompts import SYSTEM_PROMPT, EXTRACT_TOOL
 _COST_PER_M_INPUT = 3.0
 _COST_PER_M_OUTPUT = 15.0
 
+# Module-level singleton — one connection pool shared across all requests
+_client: anthropic.AsyncAnthropic | None = None
+
+
+def _get_client() -> anthropic.AsyncAnthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    return _client
+
 
 async def call_extraction(text: str) -> dict:
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    client = _get_client()
 
     response = await client.messages.create(
         model=settings.extraction_model,
         max_tokens=2048,
-        system=SYSTEM_PROMPT,
-        tools=[EXTRACT_TOOL],
+        system=[{"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+        tools=[{**EXTRACT_TOOL, "cache_control": {"type": "ephemeral"}}],
         tool_choice={"type": "tool", "name": "extract_resume"},
         messages=[{"role": "user", "content": text}],
     )

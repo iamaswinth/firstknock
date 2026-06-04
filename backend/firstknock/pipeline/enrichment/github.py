@@ -49,7 +49,7 @@ def _match_project(repo_name: str, repo_url: str, existing_projects: list[dict])
     repo_name_lower = repo_name.lower()
     for proj in existing_projects:
         # Match by github_url
-        if proj.get("github_url", "").rstrip("/").lower().endswith(f"/{repo_name_lower}"):
+        if (proj.get("github_url") or "").rstrip("/").lower().endswith(f"/{repo_name_lower}"):
             return proj["project_id"]
         # Match by name similarity
         if proj.get("name", "").lower() == repo_name_lower:

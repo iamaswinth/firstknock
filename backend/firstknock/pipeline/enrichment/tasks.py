@@ -25,6 +25,7 @@ def process_enrichment(
     company_names: list,
     institution_names: list,
     explicit_skills: list,
+    company_hints: dict | None = None,
 ) -> dict:
     """
     Single task that runs all 4 enrichers sequentially, enriches any
@@ -50,7 +51,7 @@ def process_enrichment(
         company_data = {}
         if company_names:
             try:
-                company_data = await enrich_companies(company_names)
+                company_data = await enrich_companies(company_names, hints=company_hints or {})
                 logger.info("enrichment_company_done", person_id=person_id,
                             count=len(company_data))
             except Exception as exc:
@@ -173,10 +174,12 @@ def dispatch_enrichment(
     company_names: list[str],
     institution_names: list[str],
     explicit_skills: list[str],
+    company_hints: dict[str, str] | None = None,
 ) -> None:
     process_enrichment.apply_async(args=[
         resume_id, person_id, github_url, linkedin_url,
         existing_projects, company_names, institution_names, explicit_skills,
+        company_hints or {},
     ])
     logger.info(
         "enrichment_dispatched",

@@ -98,6 +98,7 @@ async def get_graph(user_id: str, _: dict = Depends(verify_clerk_token)):
     # ── Parse ego graph rows ──────────────────────────────────────────────────
     # Use named access (row is a dict from .data()) to avoid Memgraph UNION
     # column ordering issues — driver may sort aliases alphabetically.
+    seen_links: set[tuple] = set()
     for row in ego_rows:
         src_labels = row.get('src_labels') or []
         src_props  = row.get('src_props')  or {}
@@ -119,6 +120,10 @@ async def get_graph(user_id: str, _: dict = Depends(verify_clerk_token)):
         if tgt_id not in nodes:
             nodes[tgt_id] = _make_node(tgt_id, tgt_props, tgt_type, skill_meta)
 
+        link_key = (src_id, tgt_id, rel_type)
+        if link_key in seen_links:
+            continue
+        seen_links.add(link_key)
         link = GraphLink(
             source=src_id,
             target=tgt_id,
@@ -214,6 +219,7 @@ async def get_skill_context(user_id: str, _: dict = Depends(verify_clerk_token))
         properties=dict(pnode) if pnode else {},
     )
 
+    seen_links: set[tuple] = set()
     for row in ctx_rows:
         src_labels = row.get("src_labels") or []
         src_props  = row.get("src_props")  or {}
@@ -242,7 +248,10 @@ async def get_skill_context(user_id: str, _: dict = Depends(verify_clerk_token))
                     nodes[tgt_id].properties[key] = rel_props[key]
 
         if rel_type in ("WORKED_AT", "BUILT", "USED_SKILL", "USES", "STUDIED_AT"):
-            links.append(SkillContextLink(source=src_id, target=tgt_id, type=rel_type))
+            link_key = (src_id, tgt_id, rel_type)
+            if link_key not in seen_links:
+                seen_links.add(link_key)
+                links.append(SkillContextLink(source=src_id, target=tgt_id, type=rel_type))
 
     return SkillContextResponse(nodes=list(nodes.values()), links=links)
 
@@ -473,40 +482,51 @@ async def get_career_timeline(user_id: str, _: dict = Depends(verify_clerk_token
     # ── Primary: Memgraph ─────────────────────────────────────────────────────
     # Use .data() (dict access) not .values() (positional) to avoid Memgraph
     # returning columns in alphabetical order instead of declaration order.
+    # Queries and row-processing are in separate try blocks so a type error in
+    # experience rows cannot silently drop the education section.
+    exp_rows: list = []
+    edu_rows: list = []
     try:
         driver = await get_driver()
-
         async with driver.session(database="memgraph") as session:
             pnode_r = await session.run(GET_PERSON_NODE, person_id=user_id)
             pnode = await pnode_r.single()
             if pnode:
                 total_months = pnode["total_months"]
-
-            exp_r  = await session.run(GET_CAREER_WORKED_AT,  person_id=user_id)
+            exp_r = await session.run(GET_CAREER_WORKED_AT,  person_id=user_id)
             exp_rows = await exp_r.data()
-
-            edu_r  = await session.run(GET_CAREER_STUDIED_AT, person_id=user_id)
+            edu_r = await session.run(GET_CAREER_STUDIED_AT, person_id=user_id)
             edu_rows = await edu_r.data()
+    except Exception as exc:
+        logger.warning("career_timeline_graph_failed", user_id=user_id, error=str(exc))
 
-        for i, row in enumerate(exp_rows):
-            company   = row.get("company") or ""
-            title     = row.get("title")   or ""
+    def _safe_int(v) -> int | None:
+        try: return int(v) if v is not None else None
+        except (ValueError, TypeError): return None
+
+    def _safe_float(v) -> float | None:
+        try: return float(v) if v is not None else None
+        except (ValueError, TypeError): return None
+
+    for i, row in enumerate(exp_rows):
+        try:
+            company = row.get("company") or ""
+            title   = row.get("title")   or ""
             detail = CompanyDetail(
                 name=company,
                 industry=row.get("industry"),
                 stage=row.get("stage"),
-                headcount=int(row["headcount"])     if row.get("headcount")     is not None else None,
-                founded=int(row["founded"])         if row.get("founded")       is not None else None,
+                headcount=_safe_int(row.get("headcount")),
+                founded=_safe_int(row.get("founded")),
                 headquarters=row.get("headquarters"),
                 website=row.get("website"),
-                total_funding_usd=float(row["total_funding_usd"])         if row.get("total_funding_usd")     is not None else None,
+                total_funding_usd=_safe_float(row.get("total_funding_usd")),
                 last_round_type=row.get("last_round_type"),
-                last_round_amount_usd=float(row["last_round_amount_usd"]) if row.get("last_round_amount_usd") is not None else None,
+                last_round_amount_usd=_safe_float(row.get("last_round_amount_usd")),
                 key_investors=list(row["key_investors"]) if row.get("key_investors") else [],
                 founders=list(row["founders"])           if row.get("founders")      else [],
                 ceo=row.get("ceo"),
             )
-            raw_months = row.get("months")
             exp_events.append(TimelineEvent(
                 id=f"exp-{i}",
                 type="experience",
@@ -514,27 +534,29 @@ async def get_career_timeline(user_id: str, _: dict = Depends(verify_clerk_token
                 entity=company,
                 start_date=_normalize_date(row.get("start_date")),
                 end_date=_normalize_date(row.get("end_date")),
-                months=int(raw_months) if raw_months is not None else None,
+                months=_safe_int(row.get("months")),
                 is_current=bool(row.get("is_current")),
                 tech_stack=list(row["skills_used"]) if row.get("skills_used") else [],
                 company_detail=detail,
             ))
+        except Exception as exc:
+            logger.warning("career_timeline_exp_row_failed", user_id=user_id, row=i, error=str(exc))
 
-        for i, row in enumerate(edu_rows):
-            start_year = row.get("start_year")
-            end_year   = row.get("end_year")
+    for i, row in enumerate(edu_rows):
+        try:
+            sy = _safe_int(row.get("start_year"))
+            ey = _safe_int(row.get("end_year"))
             edu_events.append(TimelineEvent(
                 id=f"edu-{i}",
                 type="education",
                 label=f"{row.get('degree', '')} · {row.get('institution', '')}".strip(" ·"),
                 entity=row.get("institution") or "",
-                start_date=_normalize_date(str(int(start_year))) if start_year is not None else None,
-                end_date=_normalize_date(str(int(end_year)))     if end_year   is not None else None,
+                start_date=_normalize_date(str(sy)) if sy is not None else None,
+                end_date=_normalize_date(str(ey))   if ey is not None else None,
                 field=row.get("field"),
             ))
-
-    except Exception as exc:
-        logger.warning("career_timeline_graph_failed", user_id=user_id, error=str(exc))
+        except Exception as exc:
+            logger.warning("career_timeline_edu_row_failed", user_id=user_id, row=i, error=str(exc))
 
     # ── Fallback: Postgres extracted_json (only for what's still missing) ─────
     needs_exp = len(exp_events) == 0

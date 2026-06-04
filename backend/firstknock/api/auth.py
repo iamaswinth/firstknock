@@ -1,15 +1,28 @@
 import structlog
 import jwt
 import httpx
+from collections import OrderedDict
 from fastapi import HTTPException, Header
 from jwt.algorithms import RSAAlgorithm
 from firstknock.config import settings
 
 logger = structlog.get_logger()
 
+# Shared HTTP client — one connection pool for all Clerk API calls
+_http_client: httpx.AsyncClient | None = None
+
+def _get_http_client() -> httpx.AsyncClient:
+    global _http_client
+    if _http_client is None:
+        _http_client = httpx.AsyncClient(timeout=8.0)
+    return _http_client
+
 # Module-level caches — reset on process restart (fine for dev; JWKS keys rarely rotate)
 _jwks_keys: list | None = None
-_email_by_clerk_id: dict[str, str] = {}
+
+# LRU cap: evicts oldest entry after 50k users so memory stays bounded
+_MAX_EMAIL_CACHE = 50_000
+_email_by_clerk_id: OrderedDict[str, str] = OrderedDict()
 
 
 async def _load_jwks() -> list:
@@ -17,10 +30,9 @@ async def _load_jwks() -> list:
     if _jwks_keys is None:
         if not settings.clerk_jwks_url:
             raise HTTPException(status_code=500, detail="CLERK_JWKS_URL not configured")
-        async with httpx.AsyncClient() as client:
-            r = await client.get(settings.clerk_jwks_url, timeout=5)
-            r.raise_for_status()
-            _jwks_keys = r.json()["keys"]
+        r = await _get_http_client().get(settings.clerk_jwks_url, timeout=5)
+        r.raise_for_status()
+        _jwks_keys = r.json()["keys"]
     return _jwks_keys
 
 
@@ -31,12 +43,10 @@ async def _email_for(clerk_id: str) -> str:
         logger.warning("clerk_secret_key_missing", clerk_id=clerk_id)
         return ""
     try:
-        async with httpx.AsyncClient() as client:
-            r = await client.get(
-                f"https://api.clerk.com/v1/users/{clerk_id}",
-                headers={"Authorization": f"Bearer {settings.clerk_secret_key}"},
-                timeout=8,
-            )
+        r = await _get_http_client().get(
+            f"https://api.clerk.com/v1/users/{clerk_id}",
+            headers={"Authorization": f"Bearer {settings.clerk_secret_key}"},
+        )
     except httpx.TimeoutException:
         logger.warning("clerk_api_timeout", clerk_id=clerk_id)
         return ""
@@ -54,6 +64,8 @@ async def _email_for(clerk_id: str) -> str:
         addrs[0]["email_address"] if addrs else "",
     )
     _email_by_clerk_id[clerk_id] = email
+    if len(_email_by_clerk_id) > _MAX_EMAIL_CACHE:
+        _email_by_clerk_id.popitem(last=False)
     return email
 
 

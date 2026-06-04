@@ -23,8 +23,11 @@ from .queries import (
     MERGE_PROJECT_TOPIC_SKILL,
     SET_COMPANY_ENRICHMENT,
     SET_INSTITUTION_TIER,
-    MERGE_LINKEDIN_WORKED_AT,
+    UPDATE_RESUME_EDGE_WITH_LINKEDIN,
+    CREATE_LINKEDIN_WORKED_AT,
     SET_PERSON_LINKEDIN_STATS,
+    MERGE_LINKEDIN_STUDIED_AT,
+    UPDATE_WORKED_AT_JOB_SKILLS,
 )
 
 logger = structlog.get_logger()
@@ -146,15 +149,22 @@ async def _write_tx(tx, user_id: str, data: dict) -> None:
                 await r.consume()
 
     # 5. Education → Institution + STUDIED_AT
+    # Convert years to int — EducationEntry stores them as strings ("2019"), LinkedIn as int.
     for edu in data.get("education", []):
+        def _year_int(v) -> int | None:
+            try:
+                return int(v) if v is not None else None
+            except (ValueError, TypeError):
+                return None
+
         r = await tx.run(
             MERGE_INSTITUTION_AND_STUDIED_AT,
             person_id=user_id,
             institution=edu.get("institution", ""),
             degree=edu.get("degree", ""),
             field=edu.get("field", ""),
-            start_year=edu.get("start_year"),
-            end_year=edu.get("end_year"),
+            start_year=_year_int(edu.get("start_year")),
+            end_year=_year_int(edu.get("end_year")),
         )
         await r.consume()
 
@@ -320,33 +330,126 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
                 )
                 await r.consume()
 
-        # LinkedIn profile stats on Person node
+        # ── LinkedIn ──────────────────────────────────────────────────────────
+        # enriched_json["linkedin"] is the flat model_dump() of LinkedInProfileData
         linkedin = enriched_json.get("linkedin", {})
-        li_profile = linkedin.get("profile", {})
-        if any(v is not None for v in li_profile.values()):
+
+        # Profile stats on Person node
+        if any(linkedin.get(k) is not None for k in ("headline", "connections", "followers", "linkedin_id")):
             r = await session.run(
                 SET_PERSON_LINKEDIN_STATS,
                 person_id=user_id,
-                headline=li_profile.get("headline"),
-                connections=li_profile.get("connections"),
-                followers=li_profile.get("followers"),
-                summary=li_profile.get("summary"),
+                linkedin_id=linkedin.get("linkedin_id"),
+                headline=linkedin.get("headline"),
+                connections=linkedin.get("connections"),
+                followers=linkedin.get("followers"),
+                summary=linkedin.get("summary"),
+                open_to_work=bool(linkedin.get("open_to_work", False)),
+                hiring=bool(linkedin.get("hiring", False)),
+                verified=bool(linkedin.get("verified", False)),
+                current_company=linkedin.get("current_company"),
             )
             await r.consume()
 
-        # LinkedIn-sourced WORKED_AT edges (Company nodes MERGE'd automatically)
+        # LinkedIn-sourced WORKED_AT edges
+        # Strategy: try to update an existing resume edge at the same company
+        # (within ±2 months of the LinkedIn start date) rather than creating a
+        # duplicate. Only fall back to a new LinkedIn edge when no resume edge exists.
+        from firstknock.pipeline.resolution.date_normalizer import normalize_date as _norm_date
+
+        def _month_offset(ym: str | None, delta: int) -> str | None:
+            """Shift a YYYY-MM string by delta months, return YYYY-MM."""
+            if not ym or len(ym) < 7:
+                return ym
+            try:
+                y, m = int(ym[:4]), int(ym[5:7])
+                m += delta
+                while m > 12:
+                    m -= 12; y += 1
+                while m < 1:
+                    m += 12; y -= 1
+                return f"{y:04d}-{m:02d}"
+            except (ValueError, IndexError):
+                return ym
+
         for exp in linkedin.get("experience", []):
             if not exp.get("company") or not exp.get("title"):
                 continue
-            r = await session.run(
-                MERGE_LINKEDIN_WORKED_AT,
+
+            company_raw = exp["company"]
+            norm_start  = _norm_date(exp.get("start_date"))
+            norm_end    = _norm_date(exp.get("end_date"))
+            description = exp.get("description", "")
+            job_skills  = exp.get("job_skills") or []
+
+            # Step 1: try to merge into existing resume edge (±2 months)
+            lower = _month_offset(norm_start, -2) or ""
+            upper = _month_offset(norm_start,  2) or "9999-99"
+            result = await session.run(
+                UPDATE_RESUME_EDGE_WITH_LINKEDIN,
                 person_id=user_id,
-                company=exp["company"],
+                company=company_raw,
                 title=exp["title"],
-                start_date=exp.get("start_date"),
-                end_date=exp.get("end_date"),
-                is_current=exp.get("is_current", False),
-                description=exp.get("description", ""),
+                li_start_date=norm_start,
+                start_lower=lower,
+                start_upper=upper,
+                description=description,
+            )
+            record = await result.single()
+            updated = record["updated"] if record else 0
+
+            # Stamp per-job skills onto the matched edge
+            if updated and job_skills:
+                r = await session.run(
+                    UPDATE_WORKED_AT_JOB_SKILLS,
+                    person_id=user_id,
+                    company=company_raw,
+                    start_lower=lower,
+                    start_upper=upper,
+                    job_skills=job_skills,
+                )
+                await r.consume()
+
+            # Step 2: no resume edge found — create a dedicated LinkedIn edge
+            if not updated:
+                r = await session.run(
+                    CREATE_LINKEDIN_WORKED_AT,
+                    person_id=user_id,
+                    company=company_raw,
+                    title=exp["title"],
+                    start_date=norm_start,
+                    end_date=norm_end,
+                    is_current=exp.get("is_current", False),
+                    description=description,
+                )
+                await r.consume()
+
+        # LinkedIn education → STUDIED_AT (only when no resume edge exists at that school)
+        for edu in linkedin.get("education", []):
+            school = edu.get("school_name") or ""
+            if not school:
+                continue
+            r = await session.run(
+                MERGE_LINKEDIN_STUDIED_AT,
+                person_id=user_id,
+                institution=school,
+                degree=edu.get("degree") or "",
+                field=edu.get("field_of_study") or "",
+                start_year=edu.get("start_year"),
+                end_year=edu.get("end_year"),
+            )
+            await r.consume()
+
+        # Languages → HAS_SKILL with category='language'
+        for lang in linkedin.get("languages", []):
+            name = lang.get("name") or ""
+            if not name:
+                continue
+            r = await session.run(
+                MERGE_SKILL_AND_HAS_SKILL,
+                person_id=user_id,
+                name=name,
+                category="language",
             )
             await r.consume()
 

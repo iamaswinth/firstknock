@@ -8,6 +8,44 @@ logger = structlog.get_logger()
 
 PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions"
 
+# Domains that are never a company's own website — blog/social platforms Perplexity
+# sometimes returns for small startups that have more web presence there than on
+# their actual domain.
+_NON_COMPANY_DOMAINS = {
+    "hashnode.dev", "hashnode.com",
+    "medium.com",
+    "substack.com",
+    "wordpress.com", "wordpress.org",
+    "blogspot.com",
+    "notion.so", "notion.site",
+    "github.com", "github.io",
+    "linkedin.com",
+    "twitter.com", "x.com",
+    "facebook.com",
+    "instagram.com",
+    "crunchbase.com",
+    "angel.co", "angellist.com",
+    "producthunt.com",
+    "dev.to",
+    "beehiiv.com",
+    "carrd.co",
+    "wix.com",
+    "squarespace.com",
+    "webflow.io",
+    "sites.google.com",
+}
+
+
+def _is_valid_company_website(url: str | None) -> bool:
+    """Return False if the URL points to a blog/social platform instead of a real company site."""
+    if not url:
+        return False
+    # Normalise: strip scheme
+    clean = url.lower().removeprefix("https://").removeprefix("http://").removeprefix("www.")
+    domain = clean.split("/")[0]
+    # Check if any blocked domain appears as a suffix (catches *.hashnode.dev etc.)
+    return not any(domain == bd or domain.endswith("." + bd) for bd in _NON_COMPANY_DOMAINS)
+
 
 class CompanyData(BaseModel):
     # Identity
@@ -112,8 +150,13 @@ async def _query_perplexity(company_name: str, hint: str = "") -> CompanyData:
                 content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
 
             raw = json.loads(content)
+            raw_website = raw.get("website") or None
+            if not _is_valid_company_website(raw_website):
+                if raw_website:
+                    logger.warning("company_website_rejected", company=company_name, url=raw_website)
+                raw_website = None
             return CompanyData(
-                website=raw.get("website") or None,
+                website=raw_website,
                 linkedin_url=raw.get("linkedin_url") or None,
                 description=raw.get("description") or None,
                 business_model=raw.get("business_model") or None,

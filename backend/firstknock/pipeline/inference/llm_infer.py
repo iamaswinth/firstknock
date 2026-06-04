@@ -5,6 +5,15 @@ from firstknock.config import settings
 
 logger = structlog.get_logger()
 
+_client: anthropic.AsyncAnthropic | None = None
+
+
+def _get_client() -> anthropic.AsyncAnthropic:
+    global _client
+    if _client is None:
+        _client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    return _client
+
 
 async def infer_skills_from_llm(
     explicit_skills: list[str],
@@ -21,7 +30,7 @@ async def infer_skills_from_llm(
         return []
 
     skip = skip or set()
-    client = anthropic.AsyncAnthropic(api_key=settings.anthropic_api_key)
+    client = _get_client()
 
     skill_list = "\n".join(f"- {s}" for s in sorted(explicit_skills))
     skip_note = (

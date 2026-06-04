@@ -141,6 +141,14 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
                     company_names = [
                         e["company"] for e in raw_dump.get("experience", []) if e.get("company")
                     ]
+                    # Hints help Perplexity disambiguate small/new companies.
+                    # Use the role location; fall back to the person's location.
+                    person_location = identity.get("location", "")
+                    company_hints: dict[str, str] = {
+                        e["company"]: e.get("location") or person_location
+                        for e in raw_dump.get("experience", [])
+                        if e.get("company")
+                    }
                     institution_names = [
                         e["institution"]
                         for e in raw_dump.get("education", [])
@@ -152,7 +160,7 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
                                 _uuid.uuid5(_uuid.NAMESPACE_URL, f"{user_id}:{p['name']}")
                             ),
                             "name": p["name"],
-                            "github_url": p.get("github_url", ""),
+                            "github_url": p.get("github_url") or "",
                         }
                         for p in raw_dump.get("projects", [])
                     ]
@@ -169,6 +177,7 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
                         linkedin_url=identity.get("linkedin_url", ""),
                         existing_projects=existing_projects,
                         company_names=company_names,
+                        company_hints=company_hints,
                         institution_names=institution_names,
                         explicit_skills=all_skills,
                     )

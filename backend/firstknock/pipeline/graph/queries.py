@@ -52,13 +52,16 @@ MERGE (proj)-[r:USES]->(s)
 ON CREATE SET r.confidence = 1.0
 """
 
+# Merge on (person, institution, degree) only — start_year is NOT in the key because
+# null is not a valid MERGE property value in Memgraph, and the resume path stores
+# years as strings while the LinkedIn path stores them as integers.
 MERGE_INSTITUTION_AND_STUDIED_AT = """
 MERGE (i:Institution {name: $institution})
 WITH i
 MATCH (p:Person {person_id: $person_id})
-MERGE (p)-[r:STUDIED_AT {degree: $degree, start_year: $start_year}]->(i)
-ON CREATE SET r.field = $field, r.end_year = $end_year
-ON MATCH SET r.field = $field, r.end_year = $end_year
+MERGE (p)-[r:STUDIED_AT {degree: $degree}]->(i)
+ON CREATE SET r.field = $field, r.start_year = $start_year, r.end_year = $end_year
+ON MATCH SET  r.field = $field, r.start_year = $start_year, r.end_year = $end_year
 """
 
 # Uses UNWIND to process all pairs in a single query — avoids N²  round trips
@@ -204,23 +207,72 @@ SET c.stage = $stage,
 
 # LinkedIn enrichment queries
 
-MERGE_LINKEDIN_WORKED_AT = """
+# Step 1: Try to find an existing resume-sourced WORKED_AT edge at the same company
+# within a ±2-month window of the LinkedIn start date, and update it with LinkedIn data.
+# Returns updated=1 if a match was found, 0 otherwise.
+UPDATE_RESUME_EDGE_WITH_LINKEDIN = """
+MATCH (p:Person {person_id: $person_id})-[r:WORKED_AT]->(c:Company {name: $company})
+WHERE (r.source IS NULL OR r.source <> 'linkedin')
+  AND r.start_date >= $start_lower
+  AND r.start_date <= $start_upper
+WITH r LIMIT 1
+SET r.description = CASE
+      WHEN $description <> '' AND (r.description IS NULL OR r.description = '')
+      THEN $description
+      ELSE r.description
+    END,
+    r.linkedin_title = $title,
+    r.linkedin_start_date = $li_start_date
+RETURN count(r) AS updated
+"""
+
+# Step 2: Only used when no resume edge was found — creates a LinkedIn-sourced edge.
+CREATE_LINKEDIN_WORKED_AT = """
 MERGE (c:Company {name: $company})
 WITH c
 MATCH (p:Person {person_id: $person_id})
-MERGE (p)-[r:WORKED_AT {title: $title, start_date: $start_date}]->(c)
-ON CREATE SET r.end_date = $end_date, r.is_current = $is_current,
-              r.description = $description, r.source = 'linkedin'
-ON MATCH SET  r.end_date = $end_date, r.is_current = $is_current,
-              r.description = $description
+MERGE (p)-[r:WORKED_AT {start_date: $start_date, source: 'linkedin'}]->(c)
+ON CREATE SET r.title = $title, r.end_date = $end_date,
+              r.is_current = $is_current, r.description = $description
+ON MATCH SET  r.title = $title, r.end_date = $end_date,
+              r.is_current = $is_current, r.description = $description
 """
 
 SET_PERSON_LINKEDIN_STATS = """
 MATCH (p:Person {person_id: $person_id})
-SET p.linkedin_headline = $headline,
+SET p.linkedin_id = $linkedin_id,
+    p.linkedin_headline = $headline,
     p.linkedin_connections = $connections,
     p.linkedin_followers = $followers,
-    p.linkedin_summary = $summary
+    p.linkedin_summary = $summary,
+    p.linkedin_open_to_work = $open_to_work,
+    p.linkedin_hiring = $hiring,
+    p.linkedin_verified = $verified,
+    p.linkedin_current_company = $current_company
+"""
+
+# Write LinkedIn education as STUDIED_AT.
+# Merges on (person, institution, degree) without start_year in the key — null start_year
+# is not a valid MERGE property value in Memgraph. On match, only fills in missing data.
+MERGE_LINKEDIN_STUDIED_AT = """
+MERGE (i:Institution {name: $institution})
+WITH i
+MATCH (p:Person {person_id: $person_id})
+MERGE (p)-[r:STUDIED_AT {degree: $degree}]->(i)
+ON CREATE SET r.field = $field, r.start_year = $start_year, r.end_year = $end_year,
+              r.source = 'linkedin'
+ON MATCH SET  r.field      = CASE WHEN r.field IS NULL OR r.field = '' THEN $field ELSE r.field END,
+              r.start_year = CASE WHEN r.start_year IS NULL THEN $start_year ELSE r.start_year END,
+              r.end_year   = CASE WHEN r.end_year IS NULL THEN $end_year ELSE r.end_year END
+"""
+
+# Stamp per-job LinkedIn skills onto a matching WORKED_AT edge (found by ±2-month window).
+UPDATE_WORKED_AT_JOB_SKILLS = """
+MATCH (p:Person {person_id: $person_id})-[r:WORKED_AT]->(c:Company {name: $company})
+WHERE r.start_date >= $start_lower AND r.start_date <= $start_upper
+WITH r LIMIT 1
+SET r.linkedin_job_skills = $job_skills
+RETURN count(r) AS updated
 """
 
 SET_INSTITUTION_TIER = """
@@ -276,7 +328,7 @@ GET_CAREER_STUDIED_AT = """
 MATCH (p:Person {person_id: $person_id})-[r:STUDIED_AT]->(i:Institution)
 RETURN i.name AS institution, r.degree AS degree, r.field AS field,
        r.start_year AS start_year, r.end_year AS end_year
-ORDER BY r.end_year DESC
+ORDER BY toInteger(toString(r.end_year)) DESC NULLS LAST
 """
 
 # ── Phase 8: API read queries ─────────────────────────────────────────────────
@@ -310,7 +362,9 @@ RETURN labels(p) AS src_labels, properties(p) AS src_props,
 
 UNION ALL
 
-MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)-[u:USED_SKILL]->(s:Skill)
+MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)
+WITH DISTINCT c
+MATCH (c)-[u:USED_SKILL]->(s:Skill)
 RETURN labels(c) AS src_labels, properties(c) AS src_props,
        type(u) AS rel_type, properties(u) AS rel_props,
        labels(s) AS tgt_labels, properties(s) AS tgt_props
@@ -345,7 +399,9 @@ RETURN labels(p) AS src_labels, properties(p) AS src_props,
 
 UNION ALL
 
-MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)-[u:USED_SKILL]->(s:Skill)
+MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)
+WITH DISTINCT c
+MATCH (c)-[u:USED_SKILL]->(s:Skill)
 RETURN labels(c) AS src_labels, properties(c) AS src_props,
        type(u) AS rel_type, properties(u) AS rel_props,
        labels(s) AS tgt_labels, properties(s) AS tgt_props
