@@ -22,7 +22,8 @@
       "Bash(py -3.12 -c \"import pgvector, httpx, firstknock\")",
       "Bash(py -3.12 -m pip list)",
       "Bash(findstr -i \"pgvector pydantic httpx firstknock celery\")",
-      "Bash(netstat -ano)"
+      "Bash(netstat -ano)",
+      "Bash(.venv/Scripts/python.exe -m pytest tests/resolution/test_entity_normalizer.py -v)"
     ],
     "additionalDirectories": [
       "C:\\Users\\iamas\\Storage\\FIRSTKNOCK\\firstknock\\app\\processing",

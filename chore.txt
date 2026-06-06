@@ -4,3 +4,119 @@
 
 3.projects card
 4.company enrichmment, sscrape the company website
+
+
+
+
+Great question — this is a real scalability concern. Let me break it down properly across three angles: what users actually put in resumes, what's valuable to enrich, and how to architect it.
+
+1. What users add to resumes (by persona)
+Persona	Links they include
+Software engineer	GitHub, LeetCode, Codeforces, HackerRank, Stack Overflow, personal site
+Data scientist / ML	Kaggle, Hugging Face, Google Scholar, GitHub, personal site
+Designer / PM	Behance, Dribbble, Figma Community, Medium, personal portfolio
+Researcher / academic	Google Scholar, ORCID, ResearchGate, arXiv, university page
+Full-stack / indie	npm profile, PyPI, App Store / Play Store (published apps)
+Content creator / DevRel	YouTube, Dev.to, Substack, Hashnode, Medium
+Startup founder	Product Hunt, AngelList/Wellfound, Crunchbase
+2. What's actually valuable per source
+LeetCode / Codeforces / HackerRank / GeeksForGeeks
+
+Contest rating, rank, problems solved by tag
+Tags solved → infer skills: Dynamic Programming, Graph Algorithms, Binary Search, etc.
+These are strong signals of algorithmic depth that resume text alone can't convey
+Kaggle
+
+Competition medals, rank, notebooks
+→ infer: XGBoost, NLP, Computer Vision, Time Series, Feature Engineering
+Highly credible — they competed, not just listed a skill
+Hugging Face
+
+Published models, datasets, spaces
+→ infer: Transformers, Fine-tuning, LLM, Diffusion Models
+Signals cutting-edge ML work
+Stack Overflow
+
+Reputation, top tags, badge tier
+Top tags are essentially peer-validated skills
+Google Scholar / arXiv
+
+Papers, citations, co-authors
+→ creates Publication nodes, infer deep domain skills
+Shows research ability — different from engineering ability
+Credly / Certifications
+
+AWS, GCP, Azure, CKA, PMP badges
+→ creates Certification nodes with issuer + date
+Verifiable credentials
+Behance / Dribbble
+
+Projects with tool tags
+→ infer: Figma, After Effects, UI Design, Motion Design
+3. What new graph nodes/edges are needed
+Right now the graph has:
+
+
+Person → WORKED_AT → Company
+Person → BUILT → Project
+Person → HAS_SKILL → Skill
+Person → STUDIED_AT → Institution
+For these new sources you'd need:
+
+
+Person → HAS_PROFILE → Platform          (LeetCode, Kaggle, etc.)
+Platform → HAS_SKILL → Skill             (skills inferred from profile)
+
+Person → AUTHORED → Publication          (Scholar, arXiv)
+Publication → COVERS → Skill             (topic/keyword → skill inference)
+
+Person → EARNED → Certification          (Credly, cloud certs)
+Certification → VALIDATES → Skill
+4. How to architect it — pluggable enricher pattern
+The current pipeline has individual enrichers (github_enricher.py, linkedin_enricher.py). As you scale to 10+ sources, you need a registry pattern:
+
+
+# Each enricher declares what domains it handles
+class LeetCodeEnricher:
+    domains = ["leetcode.com"]
+    
+    async def enrich(self, url: str, person_id: str) -> EnrichmentResult:
+        # scrape / call API
+        # return structured data
+        ...
+
+ENRICHER_REGISTRY = {
+    "leetcode.com":    LeetCodeEnricher,
+    "codeforces.com":  CodeforcesEnricher,
+    "kaggle.com":      KaggleEnricher,
+    "scholar.google.com": GoogleScholarEnricher,
+    "credly.com":      CredlyEnricher,
+    "stackoverflow.com": StackOverflowEnricher,
+}
+During resume extraction, the LLM already extracts URLs. You route each URL to its enricher automatically:
+
+
+async def dispatch_url_enrichment(url: str, person_id: str):
+    domain = extract_domain(url)
+    enricher_cls = ENRICHER_REGISTRY.get(domain)
+    if enricher_cls:
+        await enricher_cls().enrich(url, person_id)
+5. Priority order
+Given your current user base is likely software engineers first, I'd prioritise:
+
+Priority	Source	Why
+1	LeetCode	Most engineers have it, structured API exists, strong skill signal
+2	Stack Overflow	Has a real API, reputation = peer-validated skills
+3	Kaggle	Growing data science user base, public API
+4	Credly / Certifications	Verifiable, structured — easy to parse
+5	Hugging Face	ML engineers, public API
+6	Google Scholar	Researchers, open data
+7	Behance / Dribbble	Designers — harder to parse, lower engineer density
+The key architectural decision
+The only real design question is: do you enrich eagerly (at ingest time) or lazily (on first dashboard load)?
+
+Eagerly (current GitHub/LinkedIn pattern): more latency at ingest, but graph is complete when dashboard loads
+Lazily / async: fast ingest, background enrichment fills in over time — better UX for lots of sources
+Since you're already using background workers (92b1006 — ingestion, enrichment, embedding workers), the async path is the natural fit. Each new enricher just becomes another task dispatched to the enrichment worker queue.
+
+My recommendation: implement LeetCodeEnricher as the next enricher since it's the most common, has a usable (unofficial) API, and the skill inference from problem tags is genuinely high-signal. Want me to spec that out or build it?

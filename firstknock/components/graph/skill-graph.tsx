@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, useCallback } from "react"
 import { GraphFilters, type TypeFilter } from "./graph-filters"
 import { NodeDrawer } from "./node-drawer"
+import { EdgeDrawer } from "./edge-drawer"
 import type { SkillContextNode, SkillContextLink } from "@/lib/api/types"
 
 interface SkillGraphProps {
@@ -56,8 +57,20 @@ export function SkillGraph({ nodes, links }: SkillGraphProps) {
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("All")
   const [counts, setCounts] = useState({ nodes: nodes.length, edges: links.length })
 
+  const [selectedEdge, setSelectedEdge] = useState<SkillContextLink | null>(null)
+
   const handleSelectNode = useCallback((node: SkillContextNode) => {
+    setSelectedEdge(null)
     setSelectedNode((prev) => (prev?.id === node.id ? null : node))
+  }, [])
+
+  const handleSelectEdge = useCallback((link: SkillContextLink) => {
+    setSelectedNode(null)
+    setSelectedEdge((prev) =>
+      prev?.source === link.source && prev?.target === link.target && prev?.type === link.type &&
+      (prev?.properties?.start_date ?? "") === (link.properties?.start_date ?? "")
+        ? null : link
+    )
   }, [])
 
   useEffect(() => {
@@ -110,6 +123,7 @@ export function SkillGraph({ nodes, links }: SkillGraphProps) {
           start: l.source,
           end: l.target,
           relType: l.type,
+          originalLink: l,   // stored so edge-click handler can read full properties
         }))
 
         orb.data.setup({ nodes: orbNodes, edges: orbEdges })
@@ -149,6 +163,9 @@ export function SkillGraph({ nodes, links }: SkillGraphProps) {
 
         orb.events.on(OrbEventType.NODE_CLICK, (e: { node?: { data: SkillContextNode } }) => {
           if (e.node) handleSelectNode(e.node.data)
+        })
+        orb.events.on(OrbEventType.EDGE_CLICK, (e: { edge?: { data: { originalLink: SkillContextLink } } }) => {
+          if (e.edge) handleSelectEdge(e.edge.data.originalLink)
         })
         orb.events.on(OrbEventType.NODE_HOVER, (e: { node?: { data: SkillContextNode } }) => {
           setHoveredName(e.node ? (e.node.data.name ?? null) : null)
@@ -221,6 +238,7 @@ export function SkillGraph({ nodes, links }: SkillGraphProps) {
         )}
 
         <NodeDrawer node={selectedNode} onClose={() => setSelectedNode(null)} />
+        <EdgeDrawer link={selectedEdge} onClose={() => setSelectedEdge(null)} />
       </div>
 
       {/* Counts + legend */}

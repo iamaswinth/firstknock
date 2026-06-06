@@ -188,6 +188,7 @@ export interface SkillContextLink {
   source: string
   target: string
   type: "WORKED_AT" | "BUILT" | "USED_SKILL" | "USES" | "STUDIED_AT"
+  properties?: Record<string, unknown>
 }
 
 export interface SkillContextResponse {
