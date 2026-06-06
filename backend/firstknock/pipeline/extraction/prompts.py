@@ -6,6 +6,10 @@ Set is_current=true only when the role end date is "Present" or explicitly ongoi
 For skill names, use the official canonical form: write "React" not "ReactJS", "Next.js" not "nextjs", \
 "Kubernetes" not "k8s", "TypeScript" not "TS", "PostgreSQL" not "postgres", "JavaScript" not "JS". \
 Strip version numbers from skill names (write "Next.js" not "Next.js 14", "Python" not "Python 3.11").
+For each experience entry, if a company website URL (e.g. https://example.com) is explicitly written \
+in the resume text near that company — such as on the same header line, in a hyperlink label, or in \
+the description — extract it as company_url. Only set company_url when a URL is clearly present in the \
+text; do not guess or fabricate one.
 After extracting all resume fields, derive up to 3 role_recommendations that best describe what roles \
 this person is most qualified for. Order them by confidence (highest first). Use specific, \
 industry-recognized titles (e.g. "AI/ML Engineer", "Full-Stack Engineer", "MLOps Engineer", \
@@ -45,8 +49,9 @@ EXTRACT_TOOL = {
                         "start_date":  {"type": ["string", "null"]},
                         "end_date":    {"type": ["string", "null"]},
                         "is_current":  {"type": "boolean"},
-                        "description": {"type": "array", "items": {"type": "string"}},
-                        "tech_stack":  {"type": "array", "items": {"type": "string"}},
+                        "description":  {"type": "array", "items": {"type": "string"}},
+                        "tech_stack":   {"type": "array", "items": {"type": "string"}},
+                        "company_url":  {"type": ["string", "null"], "description": "Company website URL if explicitly written in the resume text near this entry, else null"},
                     },
                 },
             },

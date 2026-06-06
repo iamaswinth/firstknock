@@ -31,6 +31,7 @@ class Resume(Base):
     extracted_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     enriched_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     inferred_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    compiled_json: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     status: Mapped[str] = mapped_column(String, nullable=False, default="ingested")
     graph_built: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     ingested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)

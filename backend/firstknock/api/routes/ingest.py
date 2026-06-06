@@ -5,6 +5,7 @@ from firstknock.api.auth import verify_clerk_token
 from firstknock.api.schemas import DeleteResumeResponse, IngestQueuedResponse
 from firstknock.pipeline.graph.client import get_driver
 from firstknock.pipeline.graph.queries import DELETE_PERSON_AND_RELS
+from firstknock.pipeline.ingestion.file_store import delete_file
 from firstknock.pipeline.persistence.db import get_session
 from firstknock.pipeline.persistence.models import Resume, User
 
@@ -12,6 +13,7 @@ router = APIRouter()
 logger = structlog.get_logger()
 
 _SUPPORTED_TYPES = {"pdf", "docx"}
+_MAX_FILE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 @router.post("/ingest", status_code=202, response_model=IngestQueuedResponse)
@@ -28,6 +30,8 @@ async def ingest_resume(
         raise HTTPException(status_code=400, detail=f"Unsupported file type: .{suffix}")
 
     file_bytes = await file.read()
+    if len(file_bytes) > _MAX_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
 
     from firstknock.pipeline.persistence.postgres_writer import create_resume_stub
     from firstknock.pipeline.ingestion.file_store import store_file
@@ -53,6 +57,11 @@ async def _delete_resume_and_graph(resume: Resume) -> None:
             await s.run(DELETE_PERSON_AND_RELS, person_id=person_id)
     except Exception as exc:
         logger.warning("graph_delete_failed", person_id=person_id, error=str(exc))
+
+    try:
+        await delete_file(str(resume.resume_id))
+    except Exception as exc:
+        logger.warning("file_delete_failed", resume_id=str(resume.resume_id), error=str(exc))
 
     async with get_session() as session:
         db_resume = await session.get(Resume, resume.resume_id)
@@ -121,6 +130,8 @@ async def reingest_resume(
     await _delete_resume_and_graph(resume)
 
     file_bytes = await file.read()
+    if len(file_bytes) > _MAX_FILE_BYTES:
+        raise HTTPException(status_code=413, detail="File too large (max 10 MB)")
 
     from firstknock.pipeline.persistence.postgres_writer import create_resume_stub
     from firstknock.pipeline.ingestion.file_store import store_file

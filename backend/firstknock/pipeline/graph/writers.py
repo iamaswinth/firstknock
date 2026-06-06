@@ -3,6 +3,7 @@ import structlog
 from itertools import combinations
 
 from .client import get_driver
+from firstknock.pipeline.resolution.entity_normalizer import resolve_company, resolve_institution
 from .queries import (
     MERGE_PERSON,
     DELETE_STALE_EXPLICIT_SKILLS,
@@ -22,6 +23,8 @@ from .queries import (
     SET_PROJECT_ENRICHMENT,
     MERGE_PROJECT_TOPIC_SKILL,
     SET_COMPANY_ENRICHMENT,
+    SET_WORKED_AT_INSIGHTS,
+    SET_PROJECT_INSIGHTS,
     SET_INSTITUTION_TIER,
     UPDATE_RESUME_EDGE_WITH_LINKEDIN,
     CREATE_LINKEDIN_WORKED_AT,
@@ -101,10 +104,11 @@ async def _write_tx(tx, user_id: str, data: dict) -> None:
 
     # 3. Experience → Company + WORKED_AT + Company→Skill edges
     for exp in data.get("experience", []):
+        company_key = await resolve_company(tx, exp.get("company", ""))
         r = await tx.run(
             MERGE_COMPANY_AND_WORKED_AT,
             person_id=user_id,
-            company=exp.get("company", ""),
+            company=company_key,
             title=exp.get("title", ""),
             start_date=exp.get("start_date"),
             end_date=exp.get("end_date"),
@@ -119,7 +123,7 @@ async def _write_tx(tx, user_id: str, data: dict) -> None:
             if skill_name:
                 r = await tx.run(
                     MERGE_COMPANY_USED_SKILL,
-                    company=exp.get("company", ""),
+                    company=company_key,
                     skill_name=skill_name,
                     category="tool",
                 )
@@ -157,10 +161,11 @@ async def _write_tx(tx, user_id: str, data: dict) -> None:
             except (ValueError, TypeError):
                 return None
 
+        institution_key = await resolve_institution(tx, edu.get("institution", ""))
         r = await tx.run(
             MERGE_INSTITUTION_AND_STUDIED_AT,
             person_id=user_id,
-            institution=edu.get("institution", ""),
+            institution=institution_key,
             degree=edu.get("degree", ""),
             field=edu.get("field", ""),
             start_year=_year_int(edu.get("start_year")),
@@ -236,7 +241,7 @@ async def _write_inferred_tx(tx, user_id: str, inferred_json: dict) -> None:
         await r.consume()
 
 
-async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_skills: set[str]) -> None:
+async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_skills: set[str], skip_linkedin_worked_at: bool = False, skip_linkedin_education: bool = False) -> None:
     async with driver.session(database="memgraph") as session:
         github = enriched_json.get("github", {})
         profile = github.get("profile", {})
@@ -308,9 +313,10 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
 
         for company_name, data in enriched_json.get("companies", {}).items():
             if any(v is not None and v != [] for v in data.values()):
+                company_key = await resolve_company(session, company_name)
                 r = await session.run(
                     SET_COMPANY_ENRICHMENT,
-                    name=company_name,
+                    name=company_key,
                     stage=data.get("stage"),
                     industry=data.get("industry"),
                     headcount=data.get("headcount"),
@@ -351,7 +357,8 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
             )
             await r.consume()
 
-        # LinkedIn-sourced WORKED_AT edges
+        # LinkedIn-sourced WORKED_AT edges — skipped when build_full_graph handles this
+        # via compiled_json (skip_linkedin_worked_at=True).
         # Strategy: try to update an existing resume edge at the same company
         # (within ±2 months of the LinkedIn start date) rather than creating a
         # duplicate. Only fall back to a new LinkedIn edge when no resume edge exists.
@@ -372,23 +379,24 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
             except (ValueError, IndexError):
                 return ym
 
-        for exp in linkedin.get("experience", []):
+        for exp in ([] if skip_linkedin_worked_at else linkedin.get("experience", [])):
             if not exp.get("company") or not exp.get("title"):
                 continue
 
-            company_raw = exp["company"]
+            company_key = await resolve_company(session, exp["company"])
             norm_start  = _norm_date(exp.get("start_date"))
             norm_end    = _norm_date(exp.get("end_date"))
             description = exp.get("description", "")
             job_skills  = exp.get("job_skills") or []
 
-            # Step 1: try to merge into existing resume edge (±2 months)
-            lower = _month_offset(norm_start, -2) or ""
-            upper = _month_offset(norm_start,  2) or "9999-99"
+            # Step 1: try to merge into existing resume edge (±3 months)
+            # LinkedIn and resume start dates regularly diverge by 1-3 months.
+            lower = _month_offset(norm_start, -3) or ""
+            upper = _month_offset(norm_start,  3) or "9999-99"
             result = await session.run(
                 UPDATE_RESUME_EDGE_WITH_LINKEDIN,
                 person_id=user_id,
-                company=company_raw,
+                company=company_key,
                 title=exp["title"],
                 li_start_date=norm_start,
                 start_lower=lower,
@@ -403,7 +411,7 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
                 r = await session.run(
                     UPDATE_WORKED_AT_JOB_SKILLS,
                     person_id=user_id,
-                    company=company_raw,
+                    company=company_key,
                     start_lower=lower,
                     start_upper=upper,
                     job_skills=job_skills,
@@ -415,7 +423,7 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
                 r = await session.run(
                     CREATE_LINKEDIN_WORKED_AT,
                     person_id=user_id,
-                    company=company_raw,
+                    company=company_key,
                     title=exp["title"],
                     start_date=norm_start,
                     end_date=norm_end,
@@ -424,15 +432,18 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
                 )
                 await r.consume()
 
-        # LinkedIn education → STUDIED_AT (only when no resume edge exists at that school)
-        for edu in linkedin.get("education", []):
+        # LinkedIn education → STUDIED_AT — skipped when build_full_graph handles this
+        # via compiled_json (skip_linkedin_education=True), because MERGE_LINKEDIN_STUDIED_AT
+        # merges on {degree} which differs textually from the compiled degree string.
+        for edu in ([] if skip_linkedin_education else linkedin.get("education", [])):
             school = edu.get("school_name") or ""
             if not school:
                 continue
+            institution_key = await resolve_institution(session, school)
             r = await session.run(
                 MERGE_LINKEDIN_STUDIED_AT,
                 person_id=user_id,
-                institution=school,
+                institution=institution_key,
                 degree=edu.get("degree") or "",
                 field=edu.get("field_of_study") or "",
                 start_year=edu.get("start_year"),
@@ -468,7 +479,7 @@ async def write_graph_final_layer(
     enriched_json: dict | None,
     explicit_skills: set[str] | None = None,
 ) -> None:
-    """Write inferred skills + enrichment to Memgraph in one pass. Called by finalize_enrichment or the fallback path."""
+    """DEPRECATED: Use build_full_graph() instead. Retained for reference only."""
     driver = await get_driver()
 
     if inferred_json:
@@ -484,3 +495,155 @@ async def write_graph_final_layer(
     if enriched_json:
         await _write_enrichment(driver, user_id, enriched_json, explicit_skills or set())
         logger.info("graph_final_layer_enriched", person_id=user_id)
+
+
+# ── Single-pass deferred graph write ─────────────────────────────────────────
+
+async def build_full_graph(person_id: str, resume_id: uuid.UUID) -> None:
+    """
+    Single-pass graph write from Postgres source of truth.
+
+    Reads extracted_json + compiled_json + enriched_json + inferred_json from Postgres.
+    compiled_json contains the LLM-reconciled experience (resume ↔ LinkedIn merged,
+    company_meta validated). Falls back to extracted_json if compiled_json is absent.
+
+    Writes everything to Memgraph in one pass — no incremental merging.
+    """
+    from firstknock.pipeline.persistence.postgres_writer import get_resume_by_id
+
+    resume = await get_resume_by_id(resume_id)
+    extracted = resume.extracted_json or {}
+    compiled  = resume.compiled_json  or {}
+    enriched  = resume.enriched_json  or {}
+    inferred  = resume.inferred_json  or {}
+
+    # Use compiled experience/education if available, fall back to raw extracted
+    merged_extracted = {
+        **extracted,
+        "experience": compiled.get("experience", extracted.get("experience", [])),
+        "education":  compiled.get("education",  extracted.get("education", [])),
+    }
+
+    driver = await get_driver()
+
+    # ── 1. Core write: Person, Skills, WORKED_AT, Projects, Education, CO_OCCURS ──
+    async with driver.session(database="memgraph") as session:
+        await session.execute_write(_write_tx, person_id, merged_extracted)
+
+    # ── 2. Write company_meta from compiled experience onto Company nodes ──────
+    if compiled.get("experience"):
+        async with driver.session(database="memgraph") as session:
+            for exp in compiled["experience"]:
+                meta = exp.get("company_meta") if isinstance(exp, dict) else None
+                if not meta:
+                    continue
+                company_name = exp.get("company", "") if isinstance(exp, dict) else exp.company
+                company_key = await resolve_company(session, company_name)
+                r = await session.run(
+                    SET_COMPANY_ENRICHMENT,
+                    name=company_key,
+                    stage=meta.get("stage"),
+                    industry=meta.get("industry"),
+                    headcount=meta.get("headcount"),
+                    founded=meta.get("founded"),
+                    headquarters=meta.get("headquarters"),
+                    website=meta.get("website"),
+                    linkedin_url=meta.get("linkedin_url"),
+                    description=meta.get("description"),
+                    business_model=meta.get("business_model"),
+                    domain=meta.get("domain"),
+                    customer_type=meta.get("customer_type"),
+                    company_size=meta.get("company_size"),
+                    tags=meta.get("tags") or [],
+                    total_funding_usd=meta.get("total_funding_usd"),
+                    last_round_type=meta.get("last_round_type"),
+                    last_round_amount_usd=meta.get("last_round_amount_usd"),
+                    last_round_date=meta.get("last_round_date"),
+                    key_investors=meta.get("key_investors") or [],
+                    founders=meta.get("founders") or [],
+                    ceo=meta.get("ceo"),
+                )
+                await r.consume()
+
+    # ── 3. Write experience insights onto WORKED_AT edges ────────────────────
+    if compiled.get("experience"):
+        async with driver.session(database="memgraph") as session:
+            for exp in compiled["experience"]:
+                if not isinstance(exp, dict):
+                    continue
+                insight = exp.get("insights")
+                if not insight:
+                    continue
+                company_name = exp.get("company", "")
+                start_date = exp.get("start_date")
+                if not company_name or not start_date:
+                    continue
+                company_key = await resolve_company(session, company_name)
+                r = await session.run(
+                    SET_WORKED_AT_INSIGHTS,
+                    person_id=person_id,
+                    company=company_key,
+                    start_date=start_date,
+                    problems_solved=insight.get("problems_solved") or [],
+                    workflows_built=insight.get("workflows_built") or [],
+                    business_functions=insight.get("business_functions") or [],
+                    stakeholders_served=insight.get("stakeholders_served") or [],
+                    domain_expertise=insight.get("domain_expertise") or [],
+                    ai_systems_built=insight.get("ai_systems_built") or [],
+                    transferable_experience=insight.get("transferable_experience") or [],
+                )
+                await r.consume()
+
+    # ── 4. Write project insights onto Project nodes ──────────────────────────
+    if compiled.get("projects"):
+        async with driver.session(database="memgraph") as session:
+            for proj in compiled["projects"]:
+                if not isinstance(proj, dict):
+                    continue
+                insight = proj.get("insights")
+                if not insight:
+                    continue
+                proj_name = proj.get("name", "")
+                if not proj_name:
+                    continue
+                project_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{person_id}:{proj_name}"))
+                r = await session.run(
+                    SET_PROJECT_INSIGHTS,
+                    project_id=project_id,
+                    category=insight.get("category"),
+                    domain=insight.get("domain"),
+                    use_case=insight.get("use_case"),
+                    problem_solved=insight.get("problem_solved"),
+                    customer_type=insight.get("customer_type"),
+                    similar_companies=insight.get("similar_companies") or [],
+                    transferable_job_relevance=insight.get("transferable_job_relevance") or [],
+                )
+                await r.consume()
+
+    # ── 5. Write GitHub, LinkedIn profile stats, institution tiers ────────────
+    # WORKED_AT is already handled above via compiled experience, so skip LinkedIn
+    # experience loop inside _write_enrichment.
+    if enriched:
+        explicit_skills = {
+            s.lower()
+            for cat in extracted.get("skills", {}).values()
+            if isinstance(cat, list)
+            for s in cat
+        }
+        await _write_enrichment(
+            driver, person_id, enriched, explicit_skills,
+            skip_linkedin_worked_at=True,
+            skip_linkedin_education=True,
+        )
+
+    # ── 6. Write inferred skills + seniority ─────────────────────────────────
+    if inferred:
+        async with driver.session(database="memgraph") as session:
+            await session.execute_write(_write_inferred_tx, person_id, inferred)
+
+    # ── 5. Health check ───────────────────────────────────────────────────────
+    async with driver.session(database="memgraph") as session:
+        result = await session.run(COUNT_PERSON_RELS, person_id=person_id)
+        record = await result.single()
+        rel_count = record["rel_count"] if record else 0
+        logger.info("build_full_graph_complete", person_id=person_id, relationships=rel_count)

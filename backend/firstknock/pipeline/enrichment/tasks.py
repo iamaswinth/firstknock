@@ -6,9 +6,15 @@ from firstknock.pipeline.enrichment.github import enrich_github
 from firstknock.pipeline.enrichment.company import enrich_companies
 from firstknock.pipeline.enrichment.institution import enrich_institutions
 from firstknock.pipeline.enrichment.linkedin import enrich_linkedin
-from firstknock.pipeline.persistence.postgres_writer import save_enrichment_data, get_resume_by_id
+from firstknock.pipeline.persistence.postgres_writer import (
+    save_enrichment_data,
+    save_compiled_profile,
+    get_resume_by_id,
+    mark_graph_built,
+    update_resume_status,
+)
 from firstknock.pipeline.persistence.db import dispose_engine
-from firstknock.pipeline.graph.writers import write_graph_final_layer
+from firstknock.pipeline.graph.writers import build_full_graph
 from firstknock.pipeline.graph.client import close_driver
 
 logger = structlog.get_logger()
@@ -28,70 +34,100 @@ def process_enrichment(
     company_hints: dict | None = None,
 ) -> dict:
     """
-    Single task that runs all 4 enrichers sequentially, enriches any
-    LinkedIn-only companies via Perplexity, then writes to Postgres + Memgraph.
-    Runs entirely in one Celery task to avoid solo-pool chord issues on Windows.
+    Single task that runs all 4 enrichers concurrently, then enriches any
+    LinkedIn-only companies, and finally writes to Postgres + Memgraph.
+    Kept as one Celery task to avoid solo-pool chord issues on Windows.
     """
     logger.info("enrichment_started", person_id=person_id, resume_id=resume_id)
 
     async def _run():
         import uuid as _uuid
 
-        # ── 1. GitHub ────────────────────────────────────────────────────────
-        github_data = {}
-        if github_url:
+        # ── 1-4. All enrichers are independent — run concurrently ────────────
+        from firstknock.config import settings
+
+        async def _do_github() -> dict:
+            if not github_url or not settings.enable_github_enrichment:
+                return {}
             try:
-                github_data = await enrich_github(person_id, github_url, existing_projects)
+                data = await enrich_github(person_id, github_url, existing_projects)
                 logger.info("enrichment_github_done", person_id=person_id,
-                            pinned=len(github_data.get("pinned_repos", [])))
+                            pinned=len(data.get("pinned_repos", [])))
+                return data
             except Exception as exc:
                 logger.warning("enrichment_github_failed", person_id=person_id, error=str(exc))
+                return {}
 
-        # ── 2. Company (resume companies) ────────────────────────────────────
-        company_data = {}
-        if company_names:
+        async def _do_company() -> dict:
+            if not company_names or not settings.enable_company_enrichment:
+                return {}
             try:
-                company_data = await enrich_companies(company_names, hints=company_hints or {})
-                logger.info("enrichment_company_done", person_id=person_id,
-                            count=len(company_data))
+                data = await enrich_companies(company_names, hints=company_hints or {})
+                logger.info("enrichment_company_done", person_id=person_id, count=len(data))
+                return data
             except Exception as exc:
                 logger.warning("enrichment_company_failed", person_id=person_id, error=str(exc))
+                return {}
 
-        # ── 3. Institution ───────────────────────────────────────────────────
-        institution_data = {}
-        if institution_names:
+        async def _do_institution() -> dict:
+            if not institution_names or not settings.enable_institution_enrichment:
+                return {}
             try:
-                institution_data = enrich_institutions(institution_names)
-                logger.info("enrichment_institution_done", person_id=person_id,
-                            count=len(institution_data))
+                data = enrich_institutions(institution_names)
+                logger.info("enrichment_institution_done", person_id=person_id, count=len(data))
+                return data
             except Exception as exc:
                 logger.warning("enrichment_institution_failed", person_id=person_id, error=str(exc))
+                return {}
 
-        # ── 4. LinkedIn ──────────────────────────────────────────────────────
-        linkedin_data = {}
-        if linkedin_url:
+        async def _do_linkedin() -> dict:
+            if not linkedin_url or not settings.enable_linkedin_enrichment:
+                return {}
             try:
                 li = await enrich_linkedin(linkedin_url)
-                linkedin_data = li.model_dump()
+                data = li.model_dump()
                 logger.info("enrichment_linkedin_done", person_id=person_id,
                             positions=len(li.experience), skills=len(li.skills))
+                return data
             except Exception as exc:
                 logger.warning("enrichment_linkedin_failed", person_id=person_id, error=str(exc))
+                return {}
+
+        github_data, company_data, institution_data, linkedin_data = await asyncio.gather(
+            _do_github(),
+            _do_company(),
+            _do_institution(),
+            _do_linkedin(),
+        )
 
         # ── 5. Enrich LinkedIn-only companies ────────────────────────────────
+        from firstknock.pipeline.resolution.entity_normalizer import _strip_company
         li_experience = linkedin_data.get("experience", [])
         if li_experience:
-            resume_set = {c.lower() for c in company_names if c}
+            resume_set = {_strip_company(c).lower() for c in company_names if c}
             new_companies = list({
-                exp["company"]
+                _strip_company(exp["company"])
                 for exp in li_experience
-                if exp.get("company") and exp["company"].lower() not in resume_set
+                if exp.get("company") and _strip_company(exp["company"]).lower() not in resume_set
             })
-            if new_companies:
+            if new_companies and settings.enable_company_enrichment:
+                # Build hints for LinkedIn-only companies so the founder gating in
+                # company.py fires (it checks for "role: <founder-role>" in the hint).
+                li_company_hints: dict[str, str] = {}
+                for exp in li_experience:
+                    co = _strip_company(exp.get("company") or "")
+                    if co and co.lower() not in resume_set:
+                        parts: list[str] = []
+                        if exp.get("location"):
+                            parts.append(exp["location"])
+                        if exp.get("title"):
+                            parts.append(f"role: {exp['title']}")
+                        li_company_hints[co] = " | ".join(parts)
+
                 logger.info("enrichment_linkedin_new_companies", person_id=person_id,
                             companies=new_companies)
                 try:
-                    new_data = await enrich_companies(new_companies)
+                    new_data = await enrich_companies(new_companies, hints=li_company_hints)
                     for name, data in new_data.items():
                         if name not in company_data:
                             company_data[name] = data
@@ -106,35 +142,40 @@ def process_enrichment(
             "linkedin": linkedin_data,
         }
 
-        # ── 6. Save to Postgres ──────────────────────────────────────────────
+        # ── 6. Save enrichment to Postgres ───────────────────────────────────
         try:
             await save_enrichment_data(resume_id, postgres_payload)
             logger.info("enrichment_postgres_saved", resume_id=resume_id)
         except Exception as exc:
             logger.warning("enrichment_postgres_failed", resume_id=resume_id, error=str(exc))
 
-        # ── 7. Read inferred_json then write final graph layer ───────────────
-        inferred_json = None
+        # ── 7. LLM compilation (reconcile resume + LinkedIn + company data) ───
+        await update_resume_status(_uuid.UUID(resume_id), "compiling")
         try:
-            resume = await get_resume_by_id(_uuid.UUID(resume_id))
-            inferred_json = resume.inferred_json
-        except Exception as exc:
-            logger.warning("enrichment_inferred_read_failed", resume_id=resume_id, error=str(exc))
-
-        try:
-            await write_graph_final_layer(
-                person_id,
-                inferred_json,
-                postgres_payload,
-                set(s.lower() for s in explicit_skills),
+            from firstknock.pipeline.compilation.compiler import compile_profile
+            compiled = await compile_profile(_uuid.UUID(resume_id))
+            await save_compiled_profile(_uuid.UUID(resume_id), compiled.model_dump())
+            logger.info(
+                "profile_compiled",
+                person_id=person_id,
+                experience=len(compiled.experience),
+                education=len(compiled.education),
             )
-            logger.info("enrichment_graph_written", person_id=person_id)
         except Exception as exc:
-            logger.warning("enrichment_graph_failed", person_id=person_id, error=str(exc))
+            logger.warning("profile_compile_failed", person_id=person_id, error=str(exc))
 
-        # ── Dispatch embedding now that enrichment + graph are complete ───────
-        # Embedding reads project data from Memgraph, which is fully populated only
-        # after enrichment writes the final graph layer.
+        # ── 8. Build full graph (single deferred write) ───────────────────────
+        await update_resume_status(_uuid.UUID(resume_id), "graph_building")
+        try:
+            await build_full_graph(person_id, _uuid.UUID(resume_id))
+            await mark_graph_built(_uuid.UUID(resume_id))
+            logger.info("full_graph_built", person_id=person_id, resume_id=resume_id)
+        except Exception as exc:
+            logger.warning("full_graph_build_failed", person_id=person_id, error=str(exc))
+
+        await update_resume_status(_uuid.UUID(resume_id), "enriched")
+
+        # ── 9. Dispatch embedding ─────────────────────────────────────────────
         try:
             from firstknock.pipeline.embedding.tasks import dispatch_embedding
             resume = await get_resume_by_id(_uuid.UUID(resume_id))

@@ -98,6 +98,14 @@ async def get_resume_by_id(resume_id: uuid.UUID) -> Resume:
         return result.scalar_one()
 
 
+async def save_compiled_profile(resume_id: uuid.UUID, compiled_json: dict) -> None:
+    async with get_session() as session:
+        result = await session.execute(select(Resume).where(Resume.resume_id == resume_id))
+        resume = result.scalar_one()
+        resume.compiled_json = compiled_json
+        resume.updated_at = _now()
+
+
 async def save_enrichment_data(resume_id: uuid.UUID, enriched_json: dict) -> None:
     async with get_session() as session:
         result = await session.execute(select(Resume).where(Resume.resume_id == resume_id))

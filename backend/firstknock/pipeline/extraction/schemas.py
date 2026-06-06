@@ -41,6 +41,12 @@ class ExperienceEntry(BaseModel):
     is_current: bool = False
     description: list[str] = []
     tech_stack: list[str] = []
+    company_url: str | None = None     # website URL if explicitly present in the resume text
+
+    @field_validator("company_url")
+    @classmethod
+    def validate_company_url(cls, v: str | None) -> str | None:
+        return _null_if_not_url(v)
 
 
 class ProjectEntry(BaseModel):

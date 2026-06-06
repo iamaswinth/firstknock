@@ -119,6 +119,24 @@ async def run_sync_ingestion(
                 if isinstance(cat, list) for s in cat
             ]
 
+            person_location = identity.get("location", "")
+            company_hints: dict[str, str] = {}
+            for e in raw_dump.get("experience", []):
+                if not e.get("company"):
+                    continue
+                parts: list[str] = []
+                if e.get("company_url"):
+                    parts.append(f"website: {e['company_url']}")
+                loc = e.get("location") or person_location
+                if loc:
+                    parts.append(loc)
+                if e.get("title"):
+                    parts.append(f"role: {e['title']}")
+                desc = e.get("description") or []
+                if desc and isinstance(desc, list) and desc[0]:
+                    parts.append(f"context: {str(desc[0])[:150]}")
+                company_hints[e["company"]] = " | ".join(parts)
+
             dispatch_enrichment(
                 resume_id=str(resume_id),
                 person_id=str(user_id),
@@ -128,6 +146,7 @@ async def run_sync_ingestion(
                 company_names=company_names,
                 institution_names=institution_names,
                 explicit_skills=all_skills,
+                company_hints=company_hints,
             )
             enrichment_dispatched = True
         except Exception as exc:

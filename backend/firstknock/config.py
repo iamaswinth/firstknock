@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     redis_file_key_prefix: str = "ingest:file:"
     redis_file_ttl_seconds: int = 900   # 15 min — covers any queue backlog
 
+    # Enrichment toggles — set to false in .env to skip that layer
+    enable_company_enrichment: bool = True
+    enable_github_enrichment: bool = True
+    enable_linkedin_enrichment: bool = True
+    enable_institution_enrichment: bool = True
+
     # Pipeline tuning
     extraction_model: str = "claude-sonnet-4-6"
     inference_model: str = "claude-haiku-4-5-20251001"

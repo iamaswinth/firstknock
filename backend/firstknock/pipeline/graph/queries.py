@@ -26,11 +26,13 @@ MERGE_COMPANY_AND_WORKED_AT = """
 MERGE (c:Company {name: $company})
 WITH c
 MATCH (p:Person {person_id: $person_id})
-MERGE (p)-[r:WORKED_AT {title: $title, start_date: $start_date}]->(c)
-ON CREATE SET r.end_date = $end_date, r.months = $months, r.is_current = $is_current,
-              r.location = $location, r.description = $description, r.skills_used = $skills_used
-ON MATCH SET  r.end_date = $end_date, r.months = $months, r.is_current = $is_current,
-              r.location = $location, r.description = $description, r.skills_used = $skills_used
+MERGE (p)-[r:WORKED_AT {start_date: $start_date}]->(c)
+ON CREATE SET r.title = $title, r.end_date = $end_date, r.months = $months,
+              r.is_current = $is_current, r.location = $location,
+              r.description = $description, r.skills_used = $skills_used
+ON MATCH SET  r.title      = CASE WHEN $title <> '' THEN $title ELSE r.title END,
+              r.end_date   = $end_date, r.months = $months, r.is_current = $is_current,
+              r.location   = $location, r.description = $description, r.skills_used = $skills_used
 """
 
 MERGE_PROJECT_AND_BUILT = """
@@ -97,6 +99,27 @@ DELETE r
 GET_EXPLICIT_SKILLS = """
 MATCH (p:Person {person_id: $person_id})-[:HAS_SKILL {source: 'explicit'}]->(s:Skill)
 RETURN s.name AS name, s.category AS category
+"""  # DEPRECATED: pass explicit_skills directly to run_inference instead
+
+# Skill-name-based equivalents — traverse Skill→Skill without a Person node.
+# Used by the inference engine so the current user's graph need not be written first.
+GET_GRAPH_IMPLIED_SKILLS_BY_NAMES = """
+UNWIND $skill_names AS known_name
+MATCH (known:Skill {name: known_name})-[r:SKILL_IMPLIES]->(candidate:Skill)
+WHERE NOT candidate.name IN $skill_names
+RETURN known_name AS inferred_from, candidate.name AS name,
+       candidate.category AS category, r.confidence AS confidence, r.reason AS reason
+"""
+
+ADAMIC_ADAR_CANDIDATES_BY_NAMES = """
+UNWIND $skill_names AS known_name
+MATCH (known:Skill {name: known_name})-[:CO_OCCURS_WITH]-(candidate:Skill)
+WHERE NOT candidate.name IN $skill_names
+WITH candidate, count(DISTINCT known_name) AS overlap
+WHERE overlap >= $min_overlap
+RETURN candidate.name AS name, candidate.category AS category, overlap
+ORDER BY overlap DESC
+LIMIT $limit
 """
 
 MERGE_INFERRED_HAS_SKILL = """
@@ -160,6 +183,17 @@ SET proj.stars = $stars,
     proj.description = $description
 """
 
+SET_PROJECT_INSIGHTS = """
+MATCH (proj:Project {project_id: $project_id})
+SET proj.category                   = $category,
+    proj.domain                     = $domain,
+    proj.use_case                   = $use_case,
+    proj.problem_solved             = $problem_solved,
+    proj.customer_type              = $customer_type,
+    proj.similar_companies          = $similar_companies,
+    proj.transferable_job_relevance = $transferable_job_relevance
+"""
+
 MERGE_PINNED_PROJECT = """
 MERGE (proj:Project {project_id: $project_id})
 ON CREATE SET proj.name = $name,
@@ -196,6 +230,10 @@ SET c.stage = $stage,
     c.linkedin_url = $linkedin_url,
     c.description = $description,
     c.business_model = $business_model,
+    c.domain = $domain,
+    c.customer_type = $customer_type,
+    c.company_size = $company_size,
+    c.tags = $tags,
     c.total_funding_usd = $total_funding_usd,
     c.last_round_type = $last_round_type,
     c.last_round_amount_usd = $last_round_amount_usd,
@@ -203,6 +241,18 @@ SET c.stage = $stage,
     c.key_investors = $key_investors,
     c.founders = $founders,
     c.ceo = $ceo
+"""
+
+SET_WORKED_AT_INSIGHTS = """
+MATCH (p:Person {person_id: $person_id})-[r:WORKED_AT]->(c:Company {name: $company})
+WHERE r.start_date = $start_date
+SET r.problems_solved         = $problems_solved,
+    r.workflows_built         = $workflows_built,
+    r.business_functions      = $business_functions,
+    r.stakeholders_served     = $stakeholders_served,
+    r.domain_expertise        = $domain_expertise,
+    r.ai_systems_built        = $ai_systems_built,
+    r.transferable_experience = $transferable_experience
 """
 
 # LinkedIn enrichment queries
@@ -226,16 +276,21 @@ SET r.description = CASE
 RETURN count(r) AS updated
 """
 
-# Step 2: Only used when no resume edge was found — creates a LinkedIn-sourced edge.
+# Step 2: Only used when no resume edge was found — creates or merges on start_date.
+# source='linkedin' removed from MERGE key: was forcing a new edge on every run
+# even when a resume-written edge at the same company+date already existed.
 CREATE_LINKEDIN_WORKED_AT = """
 MERGE (c:Company {name: $company})
 WITH c
 MATCH (p:Person {person_id: $person_id})
-MERGE (p)-[r:WORKED_AT {start_date: $start_date, source: 'linkedin'}]->(c)
+MERGE (p)-[r:WORKED_AT {start_date: $start_date}]->(c)
 ON CREATE SET r.title = $title, r.end_date = $end_date,
-              r.is_current = $is_current, r.description = $description
-ON MATCH SET  r.title = $title, r.end_date = $end_date,
-              r.is_current = $is_current, r.description = $description
+              r.is_current = $is_current, r.description = $description,
+              r.source = 'linkedin'
+ON MATCH SET  r.title      = CASE WHEN $title <> '' THEN $title ELSE r.title END,
+              r.end_date   = $end_date, r.is_current = $is_current,
+              r.description = CASE WHEN $description <> '' AND (r.description IS NULL OR r.description = '')
+                              THEN $description ELSE r.description END
 """
 
 SET_PERSON_LINKEDIN_STATS = """
@@ -343,7 +398,8 @@ RETURN p.seniority AS seniority,
 
 DELETE_PERSON_AND_RELS = """
 MATCH (p:Person {person_id: $person_id})
-DETACH DELETE p
+OPTIONAL MATCH (p)-[:BUILT]->(proj:Project)
+DETACH DELETE proj, p
 """
 
 GET_ALL_SKILLS = """
@@ -392,40 +448,56 @@ RETURN labels(p) AS src_labels, properties(p) AS src_props,
 """
 
 GET_SKILL_CONTEXT = """
-MATCH (p:Person {person_id: $person_id})-[w:WORKED_AT]->(c:Company)
-RETURN labels(p) AS src_labels, properties(p) AS src_props,
-       type(w) AS rel_type, properties(w) AS rel_props,
-       labels(c) AS tgt_labels, properties(c) AS tgt_props
+MATCH (p:Person {person_id: $person_id})
 
-UNION ALL
+// Layer 1a — Work experience
+OPTIONAL MATCH (p)-[w:WORKED_AT]->(c:Company)
+WITH p, collect({w:w, c:c}) AS work_pairs
 
-MATCH (p:Person {person_id: $person_id})-[:WORKED_AT]->(c:Company)
-WITH DISTINCT c
-MATCH (c)-[u:USED_SKILL]->(s:Skill)
-RETURN labels(c) AS src_labels, properties(c) AS src_props,
-       type(u) AS rel_type, properties(u) AS rel_props,
-       labels(s) AS tgt_labels, properties(s) AS tgt_props
+// Layer 1a skills — re-traverse to avoid cartesian product with projects
+OPTIONAL MATCH (p)-[:WORKED_AT]->(wc:Company)-[cu:USED_SKILL]->(s_c:Skill)
+WITH p, work_pairs, collect({cu:cu, wc:wc, s_c:s_c}) AS comp_skill_pairs
 
-UNION ALL
+// Layer 1b — Projects
+OPTIONAL MATCH (p)-[b:BUILT]->(proj:Project)
+WITH p, work_pairs, comp_skill_pairs, collect({b:b, proj:proj}) AS built_pairs
 
-MATCH (p:Person {person_id: $person_id})-[b:BUILT]->(proj:Project)
-RETURN labels(p) AS src_labels, properties(p) AS src_props,
-       type(b) AS rel_type, properties(b) AS rel_props,
-       labels(proj) AS tgt_labels, properties(proj) AS tgt_props
+// Layer 1b skills
+OPTIONAL MATCH (p)-[:BUILT]->(bp:Project)-[pu:USES]->(s_p:Skill)
+WITH p, work_pairs, comp_skill_pairs, built_pairs, collect({pu:pu, bp:bp, s_p:s_p}) AS proj_skill_pairs
 
-UNION ALL
+// Layer 1c — Education
+OPTIONAL MATCH (p)-[st:STUDIED_AT]->(edu:Institution)
+WITH p, work_pairs, comp_skill_pairs, built_pairs, proj_skill_pairs,
+     collect({st:st, edu:edu}) AS edu_pairs
 
-MATCH (p:Person {person_id: $person_id})-[:BUILT]->(proj:Project)-[u:USES]->(s:Skill)
-RETURN labels(proj) AS src_labels, properties(proj) AS src_props,
-       type(u) AS rel_type, properties(u) AS rel_props,
-       labels(s) AS tgt_labels, properties(s) AS tgt_props
+// Emit one row per relationship — same column contract as the old UNION ALL
+UNWIND (
+  [x IN work_pairs WHERE x.w IS NOT NULL |
+     {src_labels: labels(p),    src_props: properties(p),
+      rel_type: 'WORKED_AT',    rel_props: properties(x.w),
+      tgt_labels: labels(x.c),  tgt_props: properties(x.c)}] +
+  [x IN comp_skill_pairs WHERE x.cu IS NOT NULL |
+     {src_labels: labels(x.wc),   src_props: properties(x.wc),
+      rel_type: 'USED_SKILL',     rel_props: properties(x.cu),
+      tgt_labels: labels(x.s_c), tgt_props: properties(x.s_c)}] +
+  [x IN built_pairs WHERE x.b IS NOT NULL |
+     {src_labels: labels(p),       src_props: properties(p),
+      rel_type: 'BUILT',           rel_props: properties(x.b),
+      tgt_labels: labels(x.proj), tgt_props: properties(x.proj)}] +
+  [x IN proj_skill_pairs WHERE x.pu IS NOT NULL |
+     {src_labels: labels(x.bp),   src_props: properties(x.bp),
+      rel_type: 'USES',            rel_props: properties(x.pu),
+      tgt_labels: labels(x.s_p), tgt_props: properties(x.s_p)}] +
+  [x IN edu_pairs WHERE x.st IS NOT NULL |
+     {src_labels: labels(p),       src_props: properties(p),
+      rel_type: 'STUDIED_AT',      rel_props: properties(x.st),
+      tgt_labels: labels(x.edu), tgt_props: properties(x.edu)}]
+) AS row
 
-UNION ALL
-
-MATCH (p:Person {person_id: $person_id})-[st:STUDIED_AT]->(i:Institution)
-RETURN labels(p) AS src_labels, properties(p) AS src_props,
-       type(st) AS rel_type, properties(st) AS rel_props,
-       labels(i) AS tgt_labels, properties(i) AS tgt_props
+RETURN row.src_labels AS src_labels, row.src_props AS src_props,
+       row.rel_type   AS rel_type,   row.rel_props  AS rel_props,
+       row.tgt_labels AS tgt_labels, row.tgt_props  AS tgt_props
 """
 
 GET_PERSON_SKILL_COOCCURRENCE = """

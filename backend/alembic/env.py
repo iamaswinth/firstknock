@@ -34,7 +34,8 @@ else:
 
 config.set_main_option("sqlalchemy.url", sync_url)
 
-target_metadata = None
+from firstknock.pipeline.persistence.models import Base
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

@@ -170,6 +170,7 @@ class SkillContextLink(BaseModel):
     source: str
     target: str
     type: Literal["WORKED_AT", "BUILT", "USED_SKILL", "USES", "STUDIED_AT"]
+    properties: dict = {}
 
 
 class SkillContextResponse(BaseModel):

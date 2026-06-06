@@ -43,8 +43,27 @@ def _apply_embedded_links(result: ResumeExtraction, links: list[str]) -> ResumeE
                 project.github_url = repo_url
                 break
 
-    # Assign other links to projects by order
-    project_link_iter = iter(other_links)
+    # Try to match other links to companies before falling through to projects.
+    # Strategy: strip protocol/www, take the domain root (before first dot), remove hyphens,
+    # then check if the cleaned company name appears in it or vice versa.
+    # e.g. "ask-donna.com" → "askdonna", company "Donna" → "donna" → "donna" in "askdonna" ✓
+    used_as_company: set[str] = set()
+    for url in other_links:
+        domain = url.lower().removeprefix("https://").removeprefix("http://").removeprefix("www.").split("/")[0]
+        domain_root = domain.split(".")[0].replace("-", "").replace("_", "")
+        for exp in result.experience:
+            if exp.company_url:
+                continue
+            company_clean = exp.company.lower().replace(" ", "").replace("-", "").replace("_", "")
+            # Accept if company name is contained in domain root or vice versa (min 4 chars to avoid noise)
+            if len(company_clean) >= 4 and len(domain_root) >= 4:
+                if company_clean in domain_root or domain_root in company_clean:
+                    exp.company_url = url
+                    used_as_company.add(url)
+                    break
+
+    # Remaining links that weren't matched to companies go to projects by order
+    project_link_iter = iter(l for l in other_links if l not in used_as_company)
     for project in result.projects:
         if not project.url:
             project.url = next(project_link_iter, None)

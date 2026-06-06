@@ -5,10 +5,9 @@ from langgraph.graph import StateGraph, START, END
 
 from firstknock.pipeline.graph.client import get_driver
 from firstknock.pipeline.graph.queries import (
-    GET_EXPLICIT_SKILLS,
-    GET_GRAPH_IMPLIED_SKILLS,
     MERGE_SKILL_IMPLIES,
-    ADAMIC_ADAR_CANDIDATES,
+    GET_GRAPH_IMPLIED_SKILLS_BY_NAMES,
+    ADAMIC_ADAR_CANDIDATES_BY_NAMES,
 )
 from firstknock.pipeline.inference.llm_infer import infer_skills_from_llm
 from firstknock.config import settings
@@ -25,7 +24,7 @@ def _setup_langsmith() -> None:
 
 class InferenceState(TypedDict):
     user_id: str
-    explicit_skills: list[dict]   # [{name, category}]
+    explicit_skills: list[dict]   # [{name, category}] — seeded by caller from extracted_json
     graph_implied: list[dict]     # [{name, category, confidence, reason, inferred_from}]
     llm_inferred: list[dict]      # [{name, category, confidence, reason, inferred_from}]
     aa_candidates: list[dict]     # [{name, category, overlap}]
@@ -35,21 +34,18 @@ class InferenceState(TypedDict):
 
 # ── Nodes ─────────────────────────────────────────────────────────────────────
 
-async def fetch_skills(state: InferenceState) -> InferenceState:
-    driver = await get_driver()
-    async with driver.session(database="memgraph") as session:
-        result = await session.run(GET_EXPLICIT_SKILLS, person_id=state["user_id"])
-        rows = await result.values()
-    state["explicit_skills"] = [{"name": r[0], "category": r[1]} for r in rows]
-    logger.info("inference_fetch_skills", person_id=state["user_id"], count=len(state["explicit_skills"]))
+async def seed_skills(state: InferenceState) -> InferenceState:
+    """No-op: explicit_skills already seeded by caller from extracted_json."""
+    logger.info("inference_seed_skills", person_id=state["user_id"], count=len(state["explicit_skills"]))
     return state
 
 
 async def graph_implies(state: InferenceState) -> InferenceState:
-    """Traverse existing SKILL_IMPLIES edges before calling LLM."""
+    """Traverse SKILL_IMPLIES edges from known skill names — no Person node needed."""
+    skill_names = [s["name"] for s in state["explicit_skills"]]
     driver = await get_driver()
     async with driver.session(database="memgraph") as session:
-        result = await session.run(GET_GRAPH_IMPLIED_SKILLS, person_id=state["user_id"])
+        result = await session.run(GET_GRAPH_IMPLIED_SKILLS_BY_NAMES, skill_names=skill_names)
         rows = await result.values()
     state["graph_implied"] = [
         {
@@ -73,11 +69,13 @@ async def llm_infer(state: InferenceState) -> InferenceState:
 
 
 async def adamic_adar(state: InferenceState) -> InferenceState:
+    """Co-occurrence candidates via Skill→CO_OCCURS_WITH→Skill traversal."""
+    skill_names = [s["name"] for s in state["explicit_skills"]]
     driver = await get_driver()
     async with driver.session(database="memgraph") as session:
         result = await session.run(
-            ADAMIC_ADAR_CANDIDATES,
-            person_id=state["user_id"],
+            ADAMIC_ADAR_CANDIDATES_BY_NAMES,
+            skill_names=skill_names,
             min_overlap=3,
             limit=15,
         )
@@ -169,7 +167,7 @@ def _has_skills(state: InferenceState) -> str:
 def _build_graph():
     g = StateGraph(InferenceState)
 
-    g.add_node("fetch_skills",     fetch_skills)
+    g.add_node("seed_skills",      seed_skills)
     g.add_node("graph_implies",    graph_implies)
     g.add_node("llm_infer",        llm_infer)
     g.add_node("adamic_adar",      adamic_adar)
@@ -177,9 +175,9 @@ def _build_graph():
     g.add_node("write_inferred",   write_inferred)
     g.add_node("build_result",     build_result)
 
-    g.add_edge(START, "fetch_skills")
+    g.add_edge(START, "seed_skills")
     g.add_conditional_edges(
-        "fetch_skills",
+        "seed_skills",
         _has_skills,
         {"continue": "graph_implies", "skip": END},
     )
@@ -196,13 +194,20 @@ def _build_graph():
 _graph = _build_graph()
 
 
-async def run_inference(user_id: str) -> dict:
-    """Run the full inference pipeline for one person. Returns inferred_result dict."""
+async def run_inference(user_id: str, explicit_skills: list[dict]) -> dict:
+    """
+    Run the full inference pipeline for one person.
+
+    explicit_skills: [{name, category}] from extracted_json — passed directly so
+    the current user's graph need not be written before inference runs.
+
+    Returns inferred_result dict for saving to Postgres.
+    """
     _setup_langsmith()
 
     initial: InferenceState = {
         "user_id": user_id,
-        "explicit_skills": [],
+        "explicit_skills": explicit_skills,
         "graph_implied": [],
         "llm_inferred": [],
         "aa_candidates": [],

@@ -14,12 +14,14 @@ logger = structlog.get_logger()
 )
 def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> dict:
     """
-    Full ingestion pipeline for one resume. Runs async work inside a dedicated event loop
-    (same pattern as enrichment/tasks.py — required because Celery workers are sync).
+    Full ingestion pipeline for one resume. Runs async work inside a dedicated event loop.
 
-    Key invariant: dispose_engine() + close_driver() are ALWAYS called inside _run()'s
-    finally block. This drains the asyncpg connection pool before the loop closes, so the
-    next task's event loop gets fresh connections (avoids 'Event loop is closed' on pool ping).
+    Key invariant: dispose_engine() is ALWAYS called inside _run()'s finally block.
+    This drains the asyncpg connection pool before the loop closes so the next task's
+    event loop gets fresh connections (avoids 'Event loop is closed' on pool ping).
+
+    Graph write is NOT done here — it is deferred to the enrichment task after all
+    enrichment data is available. This eliminates incremental graph merge conflicts.
     """
     logger.info("ingestion_started", resume_id=resume_id, email=user_email)
 
@@ -29,7 +31,6 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
         from firstknock.pipeline.persistence.postgres_writer import (
             update_resume_status,
             save_extracted_resume,
-            mark_graph_built,
         )
         from firstknock.pipeline.parsers.router import parse_file
         from firstknock.pipeline.normalization.text_cleaner import clean_text
@@ -38,9 +39,7 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
         from firstknock.pipeline.resolution.skill_canonicalizer import canonicalize_skill_list
         from firstknock.pipeline.resolution.date_normalizer import normalize_date, date_range_months
         from firstknock.pipeline.resolution.company_matcher import match_company
-        from firstknock.pipeline.graph.writers import write_resume_graph
         from firstknock.pipeline.persistence.db import dispose_engine
-        from firstknock.pipeline.graph.client import close_driver
 
         rid = _uuid.UUID(resume_id)
         pipeline_error: Exception | None = None
@@ -94,110 +93,99 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
                 resume_id=rid,
             )
 
-            # ── Stage 6: Write Memgraph ──────────────────────────────────────
-            await update_resume_status(rid, "graph_building")
-            graph_written = False
-            try:
-                await write_resume_graph(str(user_id), raw_dump)
-                await mark_graph_built(db_resume_id)
-                graph_written = True
-            except Exception as exc:
-                logger.warning("graph_write_failed", resume_id=resume_id, error=str(exc))
-
-            # ── Stage 7: Inference (Claude Haiku) ────────────────────────────
+            # ── Stage 6: Inference (Claude Haiku) ────────────────────────────
+            # Runs from extracted_json directly — no graph write needed first.
             await update_resume_status(rid, "inferring")
             inferred_count = 0
-            inferred_json: dict | None = None
-            if graph_written:
-                try:
-                    from firstknock.pipeline.inference.engine import run_inference
-                    from firstknock.pipeline.inference.seniority import (
-                        compute_seniority,
-                        compute_total_experience_months,
-                    )
-                    from firstknock.pipeline.persistence.postgres_writer import save_inferred_data
+            try:
+                from firstknock.pipeline.inference.engine import run_inference
+                from firstknock.pipeline.inference.seniority import (
+                    compute_seniority,
+                    compute_total_experience_months,
+                )
+                from firstknock.pipeline.persistence.postgres_writer import save_inferred_data
+                from firstknock.pipeline.graph.writers import _collect_skills
 
-                    inferred_result = await run_inference(str(user_id))
-                    total_months = compute_total_experience_months(raw_dump.get("experience", []))
-                    seniority = compute_seniority(total_months)
-                    inferred_json = {
-                        **inferred_result,
-                        "seniority": seniority,
-                        "total_experience_months": total_months,
-                    }
-                    await save_inferred_data(db_resume_id, inferred_json)
-                    inferred_count = len(inferred_json.get("skills", []))
-                    logger.info("inference_complete", resume_id=resume_id, inferred=inferred_count)
-                except Exception as exc:
-                    logger.warning("inference_failed", resume_id=resume_id, error=str(exc))
+                explicit_for_inference = [
+                    {"name": name, "category": category}
+                    for name, category in _collect_skills(raw_dump)
+                ]
+                inferred_result = await run_inference(str(user_id), explicit_for_inference)
+                total_months = compute_total_experience_months(raw_dump.get("experience", []))
+                seniority = compute_seniority(total_months)
+                inferred_json = {
+                    **inferred_result,
+                    "seniority": seniority,
+                    "total_experience_months": total_months,
+                }
+                await save_inferred_data(db_resume_id, inferred_json)
+                inferred_count = len(inferred_json.get("skills", []))
+                logger.info("inference_complete", resume_id=resume_id, inferred=inferred_count)
+            except Exception as exc:
+                logger.warning("inference_failed", resume_id=resume_id, error=str(exc))
 
-            # ── Stage 8: Dispatch enrichment Celery task ─────────────────────
+            # ── Stage 7: Dispatch enrichment ─────────────────────────────────
+            # Always dispatches — graph write is no longer a prerequisite.
             await update_resume_status(rid, "enriching")
-            if graph_written:
-                try:
-                    from firstknock.pipeline.enrichment.tasks import dispatch_enrichment
+            try:
+                from firstknock.pipeline.enrichment.tasks import dispatch_enrichment
 
-                    identity = raw_dump.get("identity", {})
-                    company_names = [
-                        e["company"] for e in raw_dump.get("experience", []) if e.get("company")
-                    ]
-                    # Hints help Perplexity disambiguate small/new companies.
-                    # Use the role location; fall back to the person's location.
-                    person_location = identity.get("location", "")
-                    company_hints: dict[str, str] = {
-                        e["company"]: e.get("location") or person_location
-                        for e in raw_dump.get("experience", [])
-                        if e.get("company")
+                identity = raw_dump.get("identity", {})
+                company_names = [
+                    e["company"] for e in raw_dump.get("experience", []) if e.get("company")
+                ]
+                person_location = identity.get("location", "")
+                company_hints: dict[str, str] = {}
+                for e in raw_dump.get("experience", []):
+                    if not e.get("company"):
+                        continue
+                    parts: list[str] = []
+                    if e.get("company_url"):
+                        parts.append(f"website: {e['company_url']}")
+                    loc = e.get("location") or person_location
+                    if loc:
+                        parts.append(loc)
+                    if e.get("title"):
+                        parts.append(f"role: {e['title']}")
+                    desc = e.get("description") or []
+                    if desc and isinstance(desc, list) and desc[0]:
+                        parts.append(f"context: {str(desc[0])[:150]}")
+                    company_hints[e["company"]] = " | ".join(parts)
+
+                institution_names = [
+                    e["institution"]
+                    for e in raw_dump.get("education", [])
+                    if e.get("institution")
+                ]
+                existing_projects = [
+                    {
+                        "project_id": str(
+                            _uuid.uuid5(_uuid.NAMESPACE_URL, f"{user_id}:{p['name']}")
+                        ),
+                        "name": p["name"],
+                        "github_url": p.get("github_url") or "",
                     }
-                    institution_names = [
-                        e["institution"]
-                        for e in raw_dump.get("education", [])
-                        if e.get("institution")
-                    ]
-                    existing_projects = [
-                        {
-                            "project_id": str(
-                                _uuid.uuid5(_uuid.NAMESPACE_URL, f"{user_id}:{p['name']}")
-                            ),
-                            "name": p["name"],
-                            "github_url": p.get("github_url") or "",
-                        }
-                        for p in raw_dump.get("projects", [])
-                    ]
-                    all_skills = [
-                        s
-                        for cat in raw_dump.get("skills", {}).values()
-                        if isinstance(cat, list)
-                        for s in cat
-                    ]
-                    dispatch_enrichment(
-                        resume_id=str(db_resume_id),
-                        person_id=str(user_id),
-                        github_url=identity.get("github_url", ""),
-                        linkedin_url=identity.get("linkedin_url", ""),
-                        existing_projects=existing_projects,
-                        company_names=company_names,
-                        company_hints=company_hints,
-                        institution_names=institution_names,
-                        explicit_skills=all_skills,
-                    )
-                except Exception as exc:
-                    logger.warning(
-                        "enrichment_dispatch_failed", resume_id=resume_id, error=str(exc)
-                    )
-                    if inferred_json:
-                        try:
-                            from firstknock.pipeline.graph.writers import write_graph_final_layer
-                            await write_graph_final_layer(str(user_id), inferred_json, None)
-                        except Exception as inner_exc:
-                            logger.warning(
-                                "fallback_graph_write_failed",
-                                resume_id=resume_id,
-                                error=str(inner_exc),
-                            )
-
-            # Stage 9: embedding is dispatched by the enrichment task after it
-            # completes, so embeddings include enriched project data from Memgraph.
+                    for p in raw_dump.get("projects", [])
+                ]
+                all_skills = [
+                    s
+                    for cat in raw_dump.get("skills", {}).values()
+                    if isinstance(cat, list)
+                    for s in cat
+                ]
+                dispatch_enrichment(
+                    resume_id=str(db_resume_id),
+                    person_id=str(user_id),
+                    github_url=identity.get("github_url", ""),
+                    linkedin_url=identity.get("linkedin_url", ""),
+                    existing_projects=existing_projects,
+                    company_names=company_names,
+                    company_hints=company_hints,
+                    institution_names=institution_names,
+                    explicit_skills=all_skills,
+                )
+            except Exception as exc:
+                logger.warning("enrichment_dispatch_failed", resume_id=resume_id, error=str(exc))
 
             logger.info(
                 "ingestion_complete",
@@ -211,22 +199,14 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
         except Exception as exc:
             pipeline_error = exc
             logger.error("ingestion_pipeline_failed", resume_id=resume_id, error=str(exc))
-            # Write failed status while the event loop is still active and pool is still valid
             try:
                 await update_resume_status(rid, "failed", error_message=str(exc))
             except Exception:
                 pass
 
         finally:
-            # Always drain the connection pool before this loop closes.
-            # If skipped, the next task's new event loop will hit stale asyncpg connections
-            # that are bound to this (now closing) loop, causing 'Event loop is closed'.
             try:
                 await dispose_engine()
-            except Exception:
-                pass
-            try:
-                await close_driver()
             except Exception:
                 pass
 
@@ -243,8 +223,6 @@ def process_ingestion(self, resume_id: str, user_email: str, file_type: str) -> 
             loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
         return result
     except Exception as exc:
-        # _run() already wrote status=failed and disposed the engine.
-        # Just re-raise so Celery marks the task as FAILURE.
         logger.error("ingestion_task_failed", resume_id=resume_id, error=str(exc))
         raise
     finally:

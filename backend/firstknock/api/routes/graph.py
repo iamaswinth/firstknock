@@ -248,10 +248,20 @@ async def get_skill_context(user_id: str, _: dict = Depends(verify_clerk_token))
                     nodes[tgt_id].properties[key] = rel_props[key]
 
         if rel_type in ("WORKED_AT", "BUILT", "USED_SKILL", "USES", "STUDIED_AT"):
-            link_key = (src_id, tgt_id, rel_type)
+            # Discriminate multiple edges of the same type between the same pair of nodes
+            # (e.g. 3 WORKED_AT edges to Cimpress India with different start_dates)
+            if rel_type == "WORKED_AT":
+                disc = str(rel_props.get("start_date", ""))
+            elif rel_type == "STUDIED_AT":
+                disc = str(rel_props.get("degree", ""))
+            else:
+                disc = ""
+            link_key = (src_id, tgt_id, rel_type, disc)
             if link_key not in seen_links:
                 seen_links.add(link_key)
-                links.append(SkillContextLink(source=src_id, target=tgt_id, type=rel_type))
+                links.append(SkillContextLink(
+                    source=src_id, target=tgt_id, type=rel_type, properties=rel_props
+                ))
 
     return SkillContextResponse(nodes=list(nodes.values()), links=links)
 
