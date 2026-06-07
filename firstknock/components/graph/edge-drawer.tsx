@@ -114,7 +114,7 @@ function WorkedAtDetail({ props }: { props: Record<string, unknown> }) {
   return (
     <div className="flex flex-col gap-3">
       <Row label="Period" value={period} />
-      {props.location && <Row label="Location" value={String(props.location)} />}
+      {!!props.location && <Row label="Location" value={String(props.location)} />}
 
       {description.length > 0 && (
         <div className="flex flex-col gap-1.5">
