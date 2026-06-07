@@ -112,10 +112,10 @@ const STATUS_PROGRESS: Record<string, { done: Stage[]; active: Stage | null }> =
 
 interface ProcessingStatusProps {
   status: string
-  context: ResumeContext
+  context?: ResumeContext
 }
 
-export function ProcessingStatus({ status, context }: ProcessingStatusProps) {
+export function ProcessingStatus({ status, context = { companyNames: [], projectCount: 0, skillCount: 0 } }: ProcessingStatusProps) {
   const progress = STATUS_PROGRESS[status] ?? { done: [], active: null }
   const doneSet  = new Set(progress.done)
 
