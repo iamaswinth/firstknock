@@ -127,10 +127,10 @@ function InstitutionDetail({ node }: { node: SkillContextNode }) {
   const period = start && end ? `${start} – ${end}` : start ?? end ?? null
   return (
     <div className="flex flex-col">
-      {props.degree       && <Row label="Degree"       value={String(props.degree)} />}
-      {props.field        && <Row label="Field"        value={String(props.field)} />}
-      {period             && <Row label="Period"       value={period} />}
-      {props.ranking_tier && <Row label="Ranking tier" value={String(props.ranking_tier)} />}
+      {!!props.degree       && <Row label="Degree"       value={String(props.degree)} />}
+      {!!props.field        && <Row label="Field"        value={String(props.field)} />}
+      {!!period             && <Row label="Period"       value={period} />}
+      {!!props.ranking_tier && <Row label="Ranking tier" value={String(props.ranking_tier)} />}
     </div>
   )
 }
