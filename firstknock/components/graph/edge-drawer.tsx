@@ -162,8 +162,8 @@ function StudiedAtDetail({ props }: { props: Record<string, unknown> }) {
   const period = start && end ? `${start} – ${end}` : start ?? end ?? null
   return (
     <div className="flex flex-col">
-      {props.field  && <Row label="Field"  value={String(props.field)} />}
-      {period       && <Row label="Period" value={period} />}
+      {!!props.field  && <Row label="Field"  value={String(props.field)} />}
+      {!!period       && <Row label="Period" value={period} />}
     </div>
   )
 }
