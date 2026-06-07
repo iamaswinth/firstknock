@@ -23,6 +23,7 @@ from .queries import (
     SET_PROJECT_ENRICHMENT,
     MERGE_PROJECT_TOPIC_SKILL,
     SET_COMPANY_ENRICHMENT,
+    SET_COMPANY_LOGO,
     SET_WORKED_AT_INSIGHTS,
     SET_PROJECT_INSIGHTS,
     SET_INSTITUTION_TIER,
@@ -34,6 +35,8 @@ from .queries import (
 )
 
 logger = structlog.get_logger()
+
+
 
 _CATEGORY_MAP = {
     "languages": "language",
@@ -326,6 +329,10 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
                     linkedin_url=data.get("linkedin_url"),
                     description=data.get("description"),
                     business_model=data.get("business_model"),
+                    domain=data.get("domain"),
+                    customer_type=data.get("customer_type"),
+                    company_size=data.get("company_size"),
+                    tags=data.get("tags") or [],
                     total_funding_usd=data.get("total_funding_usd"),
                     last_round_type=data.get("last_round_type"),
                     last_round_amount_usd=data.get("last_round_amount_usd"),
@@ -431,6 +438,15 @@ async def _write_enrichment(driver, user_id: str, enriched_json: dict, explicit_
                     description=description,
                 )
                 await r.consume()
+
+        # Company logos — already stored as base64 data URLs from linkedin.py enrichment
+        for exp in linkedin.get("experience", []):
+            logo_url = exp.get("company_logo_url")
+            if not logo_url or not exp.get("company"):
+                continue
+            company_key = await resolve_company(session, exp["company"])
+            r = await session.run(SET_COMPANY_LOGO, name=company_key, logo_url=logo_url)
+            await r.consume()
 
         # LinkedIn education → STUDIED_AT — skipped when build_full_graph handles this
         # via compiled_json (skip_linkedin_education=True), because MERGE_LINKEDIN_STUDIED_AT

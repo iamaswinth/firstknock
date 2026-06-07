@@ -1,5 +1,5 @@
 import structlog
-from firstknock.pipeline.graph.client import get_driver
+from firstknock.pipeline.graph.client import get_driver, close_driver
 from firstknock.pipeline.graph.queries import (
     SET_PERSON_EMBEDDING,
     SET_PROJECT_EMBEDDING,
@@ -81,5 +81,6 @@ async def embed_and_write(user_id: str, resume_id: str, extracted_json: dict) ->
     except Exception as exc:
         logger.warning("project_embed_failed", person_id=user_id, error=str(exc))
 
+    await close_driver()
     await dispose_engine()
     return result

@@ -1,3 +1,4 @@
+import asyncio
 import re
 import json
 import structlog
@@ -312,6 +313,40 @@ async def _query_founders_only(company_name: str, hint: str = "") -> tuple[list[
         return [], None
 
 
+_PERPLEXITY_SEM = asyncio.Semaphore(5)
+
+
+async def _enrich_one(name: str, hint: str) -> tuple[str, dict]:
+    """Enrich a single company; returns (name, data_dict). Always succeeds."""
+    hint_lower = hint.lower()
+    has_website_hint = "website:" in hint_lower
+    is_founder_role = any(f"role: {r}" in hint_lower for r in _FOUNDER_ROLES)
+    if is_founder_role and not has_website_hint:
+        logger.info("company_enrichment_skipped_founder", company=name)
+        return name, CompanyData().model_dump()
+
+    async with _PERPLEXITY_SEM:
+        data = await _query_perplexity(name, hint)
+
+    if not data.founders and (data.website or data.total_funding_usd):
+        logger.info("company_founders_retry", company=name)
+        retry_hint = hint or data.website or data.industry or ""
+        founders, ceo = await _query_founders_only(name, retry_hint)
+        if founders:
+            data.founders = founders
+        if not data.ceo and ceo:
+            data.ceo = ceo
+
+    logger.info(
+        "company_enriched",
+        company=name,
+        stage=data.stage,
+        total_funding_usd=data.total_funding_usd,
+        founders=data.founders,
+    )
+    return name, data.model_dump()
+
+
 async def enrich_companies(
     company_names: list[str],
     hints: dict[str, str] | None = None,
@@ -326,42 +361,15 @@ async def enrich_companies(
     hints = hints or {}
     results: dict[str, dict] = {}
 
-    for name in company_names:
-        if not name:
+    valid_names = [name for name in company_names if name]
+    tasks = [_enrich_one(name, hints.get(name, "")) for name in valid_names]
+    pairs = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for item in pairs:
+        if isinstance(item, Exception):
+            logger.warning("company_enrich_failed", error=str(item))
             continue
-
-        hint = hints.get(name, "")
-        hint_lower = hint.lower()
-
-        # Skip Perplexity for founder-run companies with no website.
-        # They have no web presence, so the model hallucinates a similarly-named company.
-        has_website_hint = "website:" in hint_lower
-        is_founder_role = any(f"role: {r}" in hint_lower for r in _FOUNDER_ROLES)
-        if is_founder_role and not has_website_hint:
-            logger.info("company_enrichment_skipped_founder", company=name)
-            results[name] = CompanyData().model_dump()
-            continue
-
-        data = await _query_perplexity(name, hint)
-
-        # Retry founders specifically when the main call returned empty but the
-        # company appears real (has a website or funding data).
-        if not data.founders and (data.website or data.total_funding_usd):
-            logger.info("company_founders_retry", company=name)
-            retry_hint = hint or data.website or data.industry or ""
-            founders, ceo = await _query_founders_only(name, retry_hint)
-            if founders:
-                data.founders = founders
-            if not data.ceo and ceo:
-                data.ceo = ceo
-
-        results[name] = data.model_dump()
-        logger.info(
-            "company_enriched",
-            company=name,
-            stage=data.stage,
-            total_funding_usd=data.total_funding_usd,
-            founders=data.founders,
-        )
+        name, data = item
+        results[name] = data
 
     return results

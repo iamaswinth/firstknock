@@ -180,7 +180,6 @@ def process_enrichment(
             from firstknock.pipeline.embedding.tasks import dispatch_embedding
             resume = await get_resume_by_id(_uuid.UUID(resume_id))
             dispatch_embedding(person_id, resume_id, resume.extracted_json or {})
-            logger.info("embedding_dispatched", person_id=person_id, resume_id=resume_id)
         except Exception as exc:
             logger.warning("embedding_dispatch_failed", person_id=person_id, error=str(exc))
 

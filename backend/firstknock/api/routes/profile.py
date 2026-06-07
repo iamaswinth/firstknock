@@ -7,7 +7,7 @@ from firstknock.pipeline.completeness import calculate_completeness
 from firstknock.pipeline.persistence.db import get_session
 from firstknock.pipeline.persistence.models import Resume, User
 from firstknock.pipeline.graph.client import get_driver
-from firstknock.pipeline.graph.queries import GET_PERSON_NODE
+from firstknock.pipeline.graph.queries import GET_PERSON_NODE, GET_PERSON_PROJECTS_ENRICHED
 import uuid
 
 router = APIRouter(tags=["profile"])
@@ -80,18 +80,63 @@ async def get_profile(user_id: str, _: dict = Depends(verify_clerk_token)):
 
     # ── Memgraph: graph properties ────────────────────────────────────────────
     seniority = total_months = github_followers = public_repos = None
+    enriched_projects: list[dict] = []
     try:
         driver = await get_driver()
         async with driver.session(database="memgraph") as s:
             r = await s.run(GET_PERSON_NODE, person_id=user_id)
             node_row = await r.single()
+            proj_r = await s.run(GET_PERSON_PROJECTS_ENRICHED, person_id=user_id)
+            proj_rows = await proj_r.data()
         if node_row:
             seniority = node_row["seniority"]
             total_months = node_row["total_months"]
             github_followers = node_row["github_followers"]
             public_repos = node_row["public_repos"]
+        enriched_projects = [dict(row) for row in proj_rows]
     except Exception as exc:
         logger.warning("profile_graph_fetch_failed", user_id=user_id, error=str(exc))
+
+    # ── Merge enriched project data from Memgraph ────────────────────────────
+    # Build lookup by name (lower) and github_url so we can match regardless of source
+    _enrich_by_name: dict[str, dict] = {}
+    _enrich_by_gh: dict[str, dict] = {}
+    for ep in enriched_projects:
+        if ep.get("name"):
+            _enrich_by_name[ep["name"].lower()] = ep
+        if ep.get("github_url"):
+            _enrich_by_gh[ep["github_url"]] = ep
+
+    _enriched_fields = (
+        "stars", "forks", "primary_language", "last_pushed",
+        "category", "domain", "use_case", "problem_solved",
+        "customer_type", "similar_companies", "transferable_job_relevance",
+    )
+
+    base_projects = extracted.get("projects", [])
+    merged: list[dict] = []
+    seen_names: set[str] = set()
+    for p in base_projects:
+        ep = _enrich_by_gh.get(p.get("github_url") or "") or _enrich_by_name.get((p.get("name") or "").lower())
+        merged_p = dict(p)
+        if ep:
+            for f in _enriched_fields:
+                if ep.get(f) is not None:
+                    merged_p[f] = ep[f]
+        merged.append(merged_p)
+        seen_names.add((p.get("name") or "").lower())
+
+    # Append any Memgraph-only projects (e.g. GitHub pinned repos not on resume)
+    for ep in enriched_projects:
+        if (ep.get("name") or "").lower() not in seen_names:
+            merged.append({
+                "name": ep.get("name", ""),
+                "description": ep.get("description", ""),
+                "tech_stack": [],
+                "url": ep.get("url"),
+                "github_url": ep.get("github_url"),
+                **{f: ep.get(f) for f in _enriched_fields},
+            })
 
     # ── Skills summary ────────────────────────────────────────────────────────
     skills = extracted.get("skills", {})
@@ -114,7 +159,7 @@ async def get_profile(user_id: str, _: dict = Depends(verify_clerk_token)):
         public_repos=public_repos,
         profile_picture_url=profile_picture_url,
         experience=extracted.get("experience", []),
-        projects=extracted.get("projects", []),
+        projects=merged,
         education=extracted.get("education", []),
         skills_summary={
             "explicit_count": explicit_count,

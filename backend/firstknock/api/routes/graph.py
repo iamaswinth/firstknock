@@ -536,6 +536,10 @@ async def get_career_timeline(user_id: str, _: dict = Depends(verify_clerk_token
                 key_investors=list(row["key_investors"]) if row.get("key_investors") else [],
                 founders=list(row["founders"])           if row.get("founders")      else [],
                 ceo=row.get("ceo"),
+                logo_url=row.get("logo_url"),
+                linkedin_url=row.get("linkedin_url"),
+                description=row.get("description"),
+                domain=row.get("domain"),
             )
             exp_events.append(TimelineEvent(
                 id=f"exp-{i}",

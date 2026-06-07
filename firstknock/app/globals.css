@@ -173,3 +173,13 @@
     rgba(255,255,255,0.35) 7px
   );
 }
+
+@keyframes fk-shimmer {
+  0%   { background-position: -500px 0 }
+  100% { background-position: 500px 0 }
+}
+
+@keyframes fk-blink {
+  0%, 100% { opacity: 1 }
+  50%       { opacity: 0.25 }
+}

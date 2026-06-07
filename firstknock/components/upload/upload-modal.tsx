@@ -10,6 +10,15 @@ import { useQueryClient } from "@tanstack/react-query"
 
 type Step = "upload" | "processing" | "done"
 
+export interface ResumeContext {
+  name?: string
+  githubUrl?: string
+  linkedinUrl?: string
+  companyNames: string[]
+  projectCount: number
+  skillCount: number
+}
+
 interface UploadModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -29,6 +38,7 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
   const [error, setError] = useState<string | null>(null)
   const [resumeId, setResumeId] = useState<string | null>(null)
   const [resumeStatus, setResumeStatus] = useState("queued")
+  const [resumeCtx, setResumeCtx] = useState<ResumeContext>({ companyNames: [], projectCount: 0, skillCount: 0 })
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Reset state when modal opens
@@ -39,6 +49,7 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
       setError(null)
       setResumeId(null)
       setResumeStatus("queued")
+      setResumeCtx({ companyNames: [], projectCount: 0, skillCount: 0 })
       setLoading(false)
     }
   }, [open])
@@ -48,8 +59,29 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
     if (step !== "processing" || !resumeId) return
     const id = setInterval(async () => {
       try {
-        const res = await authedRequest<{ status: string; user_id: string }>(`/resume/${resumeId}`, getToken)
+        const res = await authedRequest<{
+          status: string
+          user_id: string
+          identity?: { name?: string; github_url?: string; linkedin_url?: string }
+          experience?: { company?: string }[]
+          projects?: unknown[]
+          skills?: Record<string, unknown[]>
+        }>(`/resume/${resumeId}`, getToken)
         setResumeStatus(res.status)
+        // Update context whenever new data arrives from the DB
+        if (res.identity || res.experience || res.skills) {
+          const skillCount = res.skills
+            ? Object.values(res.skills).reduce((n, v) => n + (Array.isArray(v) ? v.length : 0), 0)
+            : 0
+          setResumeCtx({
+            name: res.identity?.name,
+            githubUrl: res.identity?.github_url,
+            linkedinUrl: res.identity?.linkedin_url,
+            companyNames: (res.experience ?? []).map(e => e.company).filter(Boolean) as string[],
+            projectCount: (res.projects ?? []).length,
+            skillCount,
+          })
+        }
         if (res.status === "enriched") {
           clearInterval(id)
           saveResume({ userId: res.user_id, resumeId })
@@ -150,7 +182,7 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
               />
             )}
             {step === "processing" && (
-              <ProcessingStep status={resumeStatus} />
+              <ProcessingStep status={resumeStatus} context={resumeCtx} />
             )}
             {step === "done" && (
               <DoneStep onClose={() => onOpenChange(false)} />
@@ -305,26 +337,26 @@ function UploadStep({ file, setFile, dragging, setDragging, onDrop, inputRef, em
 
 // ── Step 2: Processing ──────────────────────────────────────────────────────
 
-function ProcessingStep({ status }: { status: string }) {
+function ProcessingStep({ status, context }: { status: string; context: ResumeContext }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <p style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.015em", color: "var(--fk-ink)", margin: 0 }}>
-          Building your graph
+          Building your profile
         </p>
         <p style={{ fontSize: 13, color: "var(--fk-ink-3)", margin: "4px 0 0" }}>
           Hang tight — usually done in under a minute.
         </p>
       </div>
 
-      <ProcessingStatus status={status} />
+      <ProcessingStatus status={status} context={context} />
 
       <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 4 }}>
         <span style={{
           width: 8, height: 8, borderRadius: "50%",
           background: "var(--fk-brand)",
           display: "inline-block",
-          animation: "pulse 1.5s ease-in-out infinite",
+          animation: "fk-blink 1.4s ease-in-out infinite",
         }} />
         <span style={{ fontSize: 12, color: "var(--fk-ink-3)", fontFamily: "var(--font-geist-mono), monospace" }}>
           Processing…

@@ -236,6 +236,10 @@ class CompanyDetail(BaseModel):
     key_investors: list[str] = []
     founders: list[str] = []
     ceo: str | None = None
+    logo_url: str | None = None
+    linkedin_url: str | None = None
+    description: str | None = None
+    domain: str | None = None
 
 
 class TimelineEvent(BaseModel):

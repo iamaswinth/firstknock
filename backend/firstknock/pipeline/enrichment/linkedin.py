@@ -41,6 +41,7 @@ class LinkedInExperience(BaseModel):
     company_universal_name: str | None = None
     duration: str | None = None
     job_skills: list[str] = []
+    company_logo_url: str | None = None
 
 
 class LinkedInEducation(BaseModel):
@@ -181,6 +182,9 @@ def _parse_experience(raw: list) -> list[LinkedInExperience]:
 
         job_skills = [s.name for s in _parse_skills(pos.get("skills") or [])]
 
+        logo_raw = pos.get("companyLogo") or {}
+        company_logo_url = (logo_raw.get("url") if isinstance(logo_raw, dict) else None) or None
+
         result.append(LinkedInExperience(
             company=str(company).strip(),
             title=str(title).strip(),
@@ -195,6 +199,7 @@ def _parse_experience(raw: list) -> list[LinkedInExperience]:
             company_universal_name=pos.get("companyUniversalName") or None,
             duration=pos.get("duration") or None,
             job_skills=job_skills,
+            company_logo_url=company_logo_url,
         ))
     return result
 
@@ -448,6 +453,28 @@ async def enrich_linkedin(linkedin_url: str) -> LinkedInProfileData:
 
         # ── Parse all sections ────────────────────────────────────────────────
         experience = _parse_experience(raw.get("experience") or [])
+
+        # Download company logos as base64 data URLs so they never expire (same as profile_picture_url)
+        async def _download_logo(cdn: str | None) -> str | None:
+            if not cdn:
+                return None
+            try:
+                async with httpx.AsyncClient(timeout=10) as c:
+                    r = await c.get(cdn, headers={"Referer": "https://www.linkedin.com/"}, follow_redirects=True)
+                if r.status_code == 200:
+                    mime = r.headers.get("content-type", "image/png").split(";")[0]
+                    return f"data:{mime};base64,{base64.b64encode(r.content).decode()}"
+            except Exception:
+                pass
+            return None
+
+        logo_results = await asyncio.gather(
+            *[_download_logo(exp.company_logo_url) for exp in experience],
+            return_exceptions=True,
+        )
+        for exp, result in zip(experience, logo_results):
+            if isinstance(result, str):
+                exp.company_logo_url = result
         skills = _parse_skills(raw.get("skills") or [])
         education = _parse_education(raw.get("education") or [])
         certifications = _parse_certifications(raw.get("certifications") or [])

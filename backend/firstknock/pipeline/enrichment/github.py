@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 import json
 import structlog
@@ -132,12 +133,8 @@ async def enrich_github(
             logger.warning("github_graphql_failed", username=username, error=str(exc))
             return {}
 
-        pinned_nodes = (
-            gql_data.get("data", {})
-            .get("user", {})
-            .get("pinnedItems", {})
-            .get("nodes", [])
-        )
+        user_data = gql_data.get("data", {}).get("user") or {}
+        pinned_nodes = user_data.get("pinnedItems", {}).get("nodes", [])
 
         # ── REST: user profile ────────────────────────────────────────────────
         profile = {}
@@ -154,43 +151,60 @@ async def enrich_github(
             logger.warning("github_profile_failed", username=username, error=str(exc))
 
     # ── Process pinned repos ──────────────────────────────────────────────────
-    pinned_repos = []
+
+    # Pass 1: collect sync metadata for all valid nodes
+    node_meta = []
     for node in pinned_nodes:
         if not node:
             continue
-
         repo_name = node.get("name", "")
         repo_url = node.get("url", "")
         readme_text = (node.get("object") or {}).get("text", "")
-
         topics = [
             t["topic"]["name"]
             for t in node.get("repositoryTopics", {}).get("nodes", [])
             if t.get("topic", {}).get("name")
         ]
         primary_language = (node.get("primaryLanguage") or {}).get("name", "")
-
         matched_id = _match_project(repo_name, repo_url, existing_projects)
         is_new = matched_id is None
-
-        readme_parsed = await _parse_readme(readme_text, repo_name)
-
-        # For new projects, generate a stable project_id
         if is_new:
             matched_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"{person_id}:{repo_name}:github"))
+        node_meta.append({
+            "node": node,
+            "repo_name": repo_name,
+            "repo_url": repo_url,
+            "readme_text": readme_text,
+            "topics": topics,
+            "primary_language": primary_language,
+            "matched_id": matched_id,
+            "is_new": is_new,
+        })
 
+    # Pass 2: parse all READMEs in parallel
+    readme_results = await asyncio.gather(
+        *[_parse_readme(m["readme_text"], m["repo_name"]) for m in node_meta],
+        return_exceptions=True,
+    )
+
+    # Pass 3: assemble pinned_repos list
+    pinned_repos = []
+    for meta, readme_parsed in zip(node_meta, readme_results):
+        if isinstance(readme_parsed, Exception):
+            readme_parsed = {"summary": "", "skills": []}
+        node = meta["node"]
         pinned_repos.append({
-            "name": repo_name,
-            "github_url": repo_url,
+            "name": meta["repo_name"],
+            "github_url": meta["repo_url"],
             "description": node.get("description") or "",
             "readme_summary": readme_parsed.get("summary", ""),
             "stars": node.get("stargazerCount", 0),
             "forks": node.get("forkCount", 0),
-            "primary_language": primary_language,
-            "topics": topics,
+            "primary_language": meta["primary_language"],
+            "topics": meta["topics"],
             "last_pushed": node.get("pushedAt", ""),
-            "matched_project_id": matched_id,
-            "is_new": is_new,
+            "matched_project_id": meta["matched_id"],
+            "is_new": meta["is_new"],
             "extracted_skills": readme_parsed.get("skills", []),
         })
 

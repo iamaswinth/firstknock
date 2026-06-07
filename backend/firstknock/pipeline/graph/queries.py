@@ -243,6 +243,11 @@ SET c.stage = $stage,
     c.ceo = $ceo
 """
 
+SET_COMPANY_LOGO = """
+MATCH (c:Company {name: $name})
+SET c.logo_url = $logo_url
+"""
+
 SET_WORKED_AT_INSIGHTS = """
 MATCH (p:Person {person_id: $person_id})-[r:WORKED_AT]->(c:Company {name: $company})
 WHERE r.start_date = $start_date
@@ -360,6 +365,26 @@ RETURN proj.project_id AS project_id,
        proj.description AS description
 """
 
+GET_PERSON_PROJECTS_ENRICHED = """
+MATCH (p:Person {person_id: $person_id})-[:BUILT]->(proj:Project)
+RETURN proj.project_id AS project_id,
+       proj.name AS name,
+       proj.description AS description,
+       proj.url AS url,
+       proj.github_url AS github_url,
+       proj.stars AS stars,
+       proj.forks AS forks,
+       proj.primary_language AS primary_language,
+       proj.last_pushed AS last_pushed,
+       proj.category AS category,
+       proj.domain AS domain,
+       proj.use_case AS use_case,
+       proj.problem_solved AS problem_solved,
+       proj.customer_type AS customer_type,
+       proj.similar_companies AS similar_companies,
+       proj.transferable_job_relevance AS transferable_job_relevance
+"""
+
 # ── Career Timeline read queries ─────────────────────────────────────────────
 
 GET_CAREER_WORKED_AT = """
@@ -375,7 +400,11 @@ RETURN c.name AS company, r.title AS title,
        c.last_round_type AS last_round_type,
        c.last_round_amount_usd AS last_round_amount_usd,
        c.key_investors AS key_investors,
-       c.founders AS founders, c.ceo AS ceo
+       c.founders AS founders, c.ceo AS ceo,
+       c.logo_url AS logo_url,
+       c.linkedin_url AS linkedin_url,
+       c.description AS description,
+       c.domain AS domain
 ORDER BY r.start_date DESC
 """
 
