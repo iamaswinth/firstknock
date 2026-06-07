@@ -87,7 +87,7 @@ export function UploadModal({ open, onOpenChange, reingestResumeId }: UploadModa
         : "/ingest"
       const res = await authedPostForm<{ resume_id: string; user_id: string }>(path, form, getToken)
       // Save userId right away so dashboard knows a resume exists
-      saveResume({ userId: res.user_id, resumeId: res.resume_id })
+      saveResume({ userId: res.user_id, resumeId: res.resume_id, name: file.name })
       setResumeId(res.resume_id)
       setStep("processing")
     } catch (err) {

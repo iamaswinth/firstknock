@@ -3,19 +3,21 @@ import { Nav } from "@/components/layout/nav"
 import { TitleBar } from "@/components/layout/title-bar"
 import { Footer } from "@/components/layout/footer"
 import { SkillGraph } from "@/components/graph/skill-graph"
-import { SkillComposition } from "@/components/cards/skill-composition"
 import { Insight } from "@/components/cards/insight"
 import { InferredSkills } from "@/components/cards/inferred-skills"
-import { RoleFit } from "@/components/cards/role-fit"
 import { CareerTimeline } from "@/components/cards/career-timeline"
 import { MetricCard } from "@/components/cards/metric-card"
 import { MatchesFoundCard, EmailsSentCard, RepliesCard } from "@/components/cards/outreach-stats"
+import { CompaniesSection } from "@/components/sections/companies-section"
+import { ProjectsSection } from "@/components/sections/projects-section"
 import { useProfile } from "@/lib/api/hooks/use-profile"
 import { useSkills } from "@/lib/api/hooks/use-skills"
 import { useSkillContext } from "@/lib/api/hooks/use-skill-context"
 import { useAnalytics } from "@/lib/api/hooks/use-analytics"
 import { useRoles } from "@/lib/api/hooks/use-roles"
 import { useCareerTimeline } from "@/lib/api/hooks/use-career-timeline"
+import type { PinnedRepo } from "@/lib/api/types"
+import { useAuth } from "@/providers/auth-provider"
 
 interface DashboardContentProps {
   userId: string
@@ -25,6 +27,7 @@ interface DashboardContentProps {
 }
 
 export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDelete }: DashboardContentProps) {
+  const { resumeName } = useAuth()
   const profile      = useProfile(userId)
   const skills       = useSkills(userId)
   const skillContext = useSkillContext(userId)
@@ -39,7 +42,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--fk-page)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid var(--fk-ink)", borderTopColor: "transparent", animation: "spin 0.7s linear infinite" }} />
-          <p style={{ fontSize: 14, color: "var(--fk-ink-3)" }}>Loading your profile…</p>
+          <p style={{ fontSize: 15, color: "var(--fk-ink-3)" }}>Loading your profile…</p>
         </div>
       </div>
     )
@@ -51,7 +54,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
   const aData = analytics.data
   const rData = roles.data
 
-  const pinnedRepos = (pData as { enriched?: { github?: { pinned_repos?: unknown[] } } })
+  const pinnedRepos: PinnedRepo[] = (pData as { enriched?: { github?: { pinned_repos?: PinnedRepo[] } } })
     ?.enriched?.github?.pinned_repos ?? []
 
   return (
@@ -62,7 +65,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
         width: "100%",
         maxWidth: 1500,
         margin: "0 auto",
-        padding: "18px 22px 26px",
+        padding: "20px 28px 32px",
         display: "flex",
         flexDirection: "column",
       }}
@@ -71,6 +74,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
 
         <TitleBar
           syncDate={new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          resumeName={resumeName ?? undefined}
           totalMonths={pData?.total_experience_months}
           onUpload={onOpenUploadModal}
           onReingest={onReingest}
@@ -78,9 +82,9 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
         />
 
         {/* Bento grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 20 }}>
 
-          {/* Row 1 */}
+          {/* Row 1 — Graph + Insight (full height, no SkillComposition) */}
           <div style={{ gridColumn: "span 8", display: "flex" }}>
             {gData ? (
               <SkillGraph nodes={gData.nodes} links={gData.links} />
@@ -88,22 +92,35 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
               <GraphPlaceholder />
             )}
           </div>
-          <div style={{ gridColumn: "span 4", display: "flex", flexDirection: "column", gap: 16 }}>
-            {sData ? <SkillComposition skills={sData} /> : <CardSkeleton />}
-            <div style={{ flex: 1, display: "flex" }}>
-              <Insight bridgeSkills={aData?.bridge_skills ?? null} />
-            </div>
+          <div style={{ gridColumn: "span 4", display: "flex" }}>
+            <Insight
+              bridgeSkills={aData?.bridge_skills ?? null}
+              roles={rData?.roles ?? null}
+            />
           </div>
 
-          {/* Row 2 */}
-          <div style={{ gridColumn: "span 6", display: "flex" }}>
+          {/* Row 2 — Companies */}
+          <div style={{ gridColumn: "span 12", display: "flex" }}>
+            <CompaniesSection
+              events={careerTl.data?.events ?? []}
+              resume_experience={pData?.experience ?? []}
+            />
+          </div>
+
+          {/* Row 3 — Projects */}
+          <div style={{ gridColumn: "span 12", display: "flex" }}>
+            <ProjectsSection
+              projects={pData?.projects ?? []}
+              pinnedRepos={pinnedRepos}
+            />
+          </div>
+
+          {/* Row 4 — Inferred Skills */}
+          <div style={{ gridColumn: "span 12", display: "flex" }}>
             <InferredSkills skills={aData?.inferred_skills ?? []} />
           </div>
-          <div style={{ gridColumn: "span 6", display: "flex" }}>
-            <RoleFit roles={rData?.roles ?? []} />
-          </div>
 
-          {/* Row 3 */}
+          {/* Row 5 — Career Timeline */}
           <div style={{ gridColumn: "span 12", display: "flex" }}>
             <CareerTimeline
               events={careerTl.data?.events ?? []}
@@ -111,7 +128,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
             />
           </div>
 
-          {/* Row 4 – Outreach funnel */}
+          {/* Row 6 — Outreach funnel */}
           <div style={{ gridColumn: "span 4", display: "flex" }}>
             <MatchesFoundCard />
           </div>
@@ -122,7 +139,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
             <RepliesCard />
           </div>
 
-          {/* Row 5 */}
+          {/* Row 7 — Metrics */}
           <div style={{ gridColumn: "span 6", display: "flex" }}>
             <MetricCard
               title="Skills Mapped"
@@ -139,7 +156,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
               title="GitHub Reach"
               value={String(pData?.github_followers ?? 0)}
               peakLabel="Peak"
-              peak={pinnedRepos.length > 0 ? (pinnedRepos[0] as { name: string }).name : "—"}
+              peak={pinnedRepos.length > 0 ? pinnedRepos[0].name : "—"}
               delta={`${pData?.public_repos ?? 0} repos`}
               color="blue"
               sub="public repos"
@@ -167,15 +184,5 @@ function GraphPlaceholder() {
         Graph not yet built — re-ingest to generate.
       </p>
     </div>
-  )
-}
-
-function CardSkeleton() {
-  return (
-    <div style={{
-      flex: 1, height: 160, borderRadius: "var(--fk-radius-lg)",
-      background: "var(--fk-card-2)", border: "1px solid var(--fk-line)",
-      animation: "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite",
-    }} />
   )
 }

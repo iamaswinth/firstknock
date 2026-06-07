@@ -30,14 +30,14 @@ export function CardShell({ title, sub, right, children, className, id, style }:
       }}
     >
       {(title || right) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "20px 22px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "22px 24px 0" }}>
           {title && (
             <div>
-              <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--fk-ink)" }}>
+              <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--fk-ink)" }}>
                 {title}
               </div>
               {sub && (
-                <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 2 }}>{sub}</div>
+                <div style={{ fontSize: 15, color: "var(--fk-ink-3)", marginTop: 2 }}>{sub}</div>
               )}
             </div>
           )}
@@ -54,7 +54,7 @@ export function CardShell({ title, sub, right, children, className, id, style }:
           </button>
         </div>
       )}
-      <div style={{ padding: "18px 22px 22px" }}>{children}</div>
+      <div style={{ padding: "20px 24px 24px" }}>{children}</div>
     </section>
   )
 }

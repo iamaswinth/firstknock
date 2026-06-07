@@ -57,6 +57,17 @@ export interface ProjectEntry {
   tech_stack: string[]
   url: string | null
   github_url: string | null
+  stars?: number | null
+  forks?: number | null
+  primary_language?: string | null
+  last_pushed?: string | null
+  category?: string | null
+  domain?: string | null
+  use_case?: string | null
+  problem_solved?: string | null
+  customer_type?: string | null
+  similar_companies?: string[] | null
+  transferable_job_relevance?: string[] | null
 }
 
 export interface EducationEntry {
@@ -285,6 +296,10 @@ export interface CompanyDetail {
   key_investors: string[]
   founders: string[]
   ceo: string | null
+  logo_url: string | null
+  linkedin_url: string | null
+  description: string | null
+  domain: string | null
 }
 
 export interface TimelineEvent {

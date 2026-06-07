@@ -16,6 +16,7 @@ interface AuthContextValue {
   user: AuthUser | null
   isAuthed: boolean
   hasResume: boolean
+  resumeName: string | null
   logout: () => void
   saveResume: (data: { userId: string; resumeId: string; name?: string }) => void
   clearResumeData: () => void
@@ -66,6 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       isAuthed: !!isSignedIn,
       hasResume: !!(resumeData?.userId),
+      resumeName: resumeData?.name ?? null,
       logout,
       saveResume,
       clearResumeData,

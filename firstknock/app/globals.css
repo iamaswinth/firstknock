@@ -73,6 +73,9 @@
   --chart-3: #14a05a;
   --chart-4: #e6457f;
   --chart-5: #777a82;
+  --chart-6: #8b5cf6;
+  --chart-7: #0ea5e9;
+  --chart-8: #f59e0b;
   --radius: 0.875rem;
   --sidebar: #fcfcfb;
   --sidebar-foreground: #14161b;
@@ -142,6 +145,16 @@
   border: 1px solid var(--fk-line);
   border-radius: var(--fk-radius-lg);
   box-shadow: var(--fk-shadow);
+}
+
+@keyframes fk-pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(20, 160, 90, 0.35); }
+  70%  { box-shadow: 0 0 0 6px rgba(20, 160, 90, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(20, 160, 90, 0); }
+}
+
+.fk-dot-current {
+  animation: fk-pulse-ring 2.2s ease-out infinite;
 }
 
 .striped-bar-fill {

@@ -1,10 +1,14 @@
 import { Sparkles } from "lucide-react"
-import type { BridgeSkill } from "@/lib/api/types"
+import type { BridgeSkill, RoleMatch } from "@/lib/api/types"
 
-interface InsightProps { bridgeSkills: BridgeSkill[] | null }
+interface InsightProps {
+  bridgeSkills: BridgeSkill[] | null
+  roles: RoleMatch[] | null
+}
 
-export function Insight({ bridgeSkills }: InsightProps) {
+export function Insight({ bridgeSkills, roles }: InsightProps) {
   const top = bridgeSkills?.[0]
+  const topRoles = roles?.slice(0, 3) ?? []
 
   return (
     <section style={{
@@ -16,8 +20,8 @@ export function Insight({ bridgeSkills }: InsightProps) {
       flex: "1 1 auto", width: "100%",
       display: "flex", flexDirection: "column",
     }}>
-      <div style={{ padding: 22, display: "flex", flexDirection: "column", flex: 1 }}>
-        {/* Insight tag */}
+      <div style={{ padding: 22, display: "flex", flexDirection: "column", flex: 1, gap: 0 }}>
+        {/* Tag */}
         <div style={{ alignSelf: "flex-start" }}>
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 6,
@@ -31,21 +35,51 @@ export function Insight({ bridgeSkills }: InsightProps) {
           </span>
         </div>
 
+        {/* Role titles */}
+        {topRoles.length > 0 ? (
+          <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)" }}>
+              Best-fit roles
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7 }}>
+              {topRoles.map((r, i) => (
+                <span key={r.title} style={{
+                  display: "inline-flex", alignItems: "center",
+                  padding: "6px 12px", borderRadius: 999, fontSize: 13, fontWeight: 600,
+                  background: i === 0 ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.14)",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  color: "#fff",
+                }}>
+                  {r.title}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p style={{ marginTop: 20, fontSize: 13, color: "rgba(255,255,255,0.65)" }}>
+            Role analysis pending.
+          </p>
+        )}
+
+        {/* Divider */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.2)", margin: "20px 0" }} />
+
+        {/* Bridge skill */}
         {top ? (
           <>
-            <div style={{ fontSize: 64, fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1, marginTop: "auto" }}>
+            <div style={{ fontSize: 48, fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1 }}>
               {Math.round(top.centrality * 100)}%
             </div>
-            <div style={{ fontSize: 18, fontWeight: 600, marginTop: 14, lineHeight: 1.3 }}>
-              {top.name} is your strongest bridge skill.
+            <div style={{ fontSize: 15, fontWeight: 600, marginTop: 10, lineHeight: 1.3 }}>
+              {top.name} is your bridge skill.
             </div>
-            <div style={{ fontSize: 14, lineHeight: 1.5, marginTop: 8, color: "rgba(255,255,255,0.85)" }}>
-              It links your skill communities — highest betweenness centrality in your graph.
+            <div style={{ fontSize: 13, lineHeight: 1.5, marginTop: 6, color: "rgba(255,255,255,0.8)" }}>
+              Highest betweenness centrality in your graph.
             </div>
           </>
         ) : (
-          <p style={{ marginTop: "auto", fontSize: 14, color: "rgba(255,255,255,0.7)" }}>
-            Graph analysis pending. Re-ingest to generate insights.
+          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>
+            Graph analysis pending — re-ingest to generate.
           </p>
         )}
       </div>
