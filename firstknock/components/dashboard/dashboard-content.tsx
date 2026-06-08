@@ -35,14 +35,28 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
   const roles        = useRoles(userId)
   const careerTl     = useCareerTimeline(userId)
 
-  const isLoading = profile.isLoading || skills.isLoading || analytics.isLoading
-
-  if (isLoading) {
+  if (profile.isLoading) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--fk-page)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid var(--fk-ink)", borderTopColor: "transparent", animation: "spin 0.7s linear infinite" }} />
           <p style={{ fontSize: 15, color: "var(--fk-ink-3)" }}>Loading your profile…</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (profile.isError || !profile.data) {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--fk-page)" }}>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontSize: 15, color: "var(--fk-ink-3)", marginBottom: 12 }}>Could not load your profile.</p>
+          <button
+            onClick={() => profile.refetch()}
+            style={{ fontSize: 13, color: "var(--fk-brand)", background: "none", border: "none", cursor: "pointer", textDecoration: "underline" }}
+          >
+            Try again
+          </button>
         </div>
       </div>
     )

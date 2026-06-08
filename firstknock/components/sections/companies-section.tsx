@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronRight } from "lucide-react"
+import { AnimatePresence } from "framer-motion"
+import { Search, SlidersHorizontal, MoreVertical, Check } from "lucide-react"
 import type { TimelineEvent, ExperienceEntry } from "@/lib/api/types"
 import {
   CompanyDetailModal,
   CompanyLogo,
   fmtMonths,
-  fmtUsd,
   stageBadge,
 } from "@/components/cards/company-card"
 
@@ -20,6 +20,75 @@ function fmtDate(iso: string | null | undefined): string {
   } catch {
     return iso.slice(0, 7)
   }
+}
+
+// ── StatusBadge ───────────────────────────────────────────────────────────────
+
+function StatusBadge({ isCurrent, stage }: { isCurrent: boolean; stage: string | null }) {
+  if (isCurrent) {
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", gap: 5,
+        padding: "4px 12px", borderRadius: 999,
+        background: "var(--fk-green)", color: "#fff",
+        fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
+      }}>
+        <Check size={11} strokeWidth={2.5} /> Active
+      </span>
+    )
+  }
+  if (stage) return stageBadge(stage)
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: "4px 12px", borderRadius: 999,
+      background: "var(--fk-card-2)",
+      border: "1px solid var(--fk-line)",
+      color: "var(--fk-ink-4)",
+      fontSize: 12, fontWeight: 600, whiteSpace: "nowrap",
+    }}>
+      Past
+    </span>
+  )
+}
+
+// ── Column grid definition ────────────────────────────────────────────────────
+
+const COL = "40px 1fr 200px 130px 140px 40px"
+
+// ── ColHeader ─────────────────────────────────────────────────────────────────
+
+function ColHeader() {
+  const label = (text: string) => (
+    <span style={{
+      fontSize: 11, fontWeight: 600, color: "var(--fk-ink-4)",
+      textTransform: "uppercase", letterSpacing: "0.07em",
+    }}>
+      {text}
+    </span>
+  )
+  return (
+    <div style={{
+      display: "grid",
+      gridTemplateColumns: COL,
+      alignItems: "center",
+      padding: "10px 20px",
+      background: "var(--fk-card-2)",
+      borderBottom: "1px solid var(--fk-line)",
+    }}>
+      <div>
+        <input
+          type="checkbox"
+          style={{ width: 14, height: 14, accentColor: "var(--fk-brand)", cursor: "pointer" }}
+        />
+      </div>
+      <div>{label("Company")}</div>
+      <div>{label("Date Range")}</div>
+      <div>{label("Duration")}</div>
+      <div>{label("Status")}</div>
+      <div />
+    </div>
+  )
 }
 
 // ── CompanyRow ────────────────────────────────────────────────────────────────
@@ -35,137 +104,103 @@ function CompanyRow({
 }) {
   const [open, setOpen] = useState(false)
   const [hovered, setHovered] = useState(false)
+  const [menuHovered, setMenuHovered] = useState(false)
 
-  const primary = events[0]
-  const detail = primary?.company_detail
-  const name = primary?.entity ?? ""
+  const primary   = events[0]
+  const detail    = primary?.company_detail
+  const name      = primary?.entity ?? ""
   const isCurrent = events.some(e => e.is_current)
   const totalMonths = events.reduce((s, e) => s + (e.months ?? 0), 0)
-  const title = primary?.label.split("·")[0].trim() ?? ""
 
-  // chronologically earliest start → latest end
   const startDate = [...events].sort((a, b) =>
     (a.start_date ?? "").localeCompare(b.start_date ?? "")
   )[0]?.start_date
-  const endDate = isCurrent ? null : events[0]?.end_date
+  const endDate   = isCurrent ? null : events[0]?.end_date
   const dateRange = `${fmtDate(startDate)} – ${isCurrent ? "Present" : fmtDate(endDate)}`
 
   return (
     <>
-      <div style={{ position: "relative" }}>
-        {/* Timeline dot */}
-        <div
-          className={isCurrent ? "fk-dot-current" : undefined}
-          style={{
-            position: "absolute",
-            left: 22,
-            top: "50%",
-            transform: "translateY(-50%)",
-            width: 12, height: 12,
-            borderRadius: "50%",
-            background: isCurrent ? "var(--fk-green)" : "var(--fk-ink-5)",
-            border: "2px solid var(--fk-card)",
-            zIndex: 1,
-          }}
-        />
+      <div
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onClick={() => setOpen(true)}
+        style={{
+          display: "grid",
+          gridTemplateColumns: COL,
+          alignItems: "center",
+          padding: "14px 20px",
+          background: hovered ? "var(--fk-card-2)" : "transparent",
+          borderBottom: isLast ? "none" : "1px solid var(--fk-line)",
+          transition: "background 0.12s",
+          cursor: "pointer",
+        }}
+      >
+        {/* Checkbox */}
+        <div onClick={e => e.stopPropagation()} style={{ display: "flex", alignItems: "center" }}>
+          <input
+            type="checkbox"
+            style={{ width: 14, height: 14, accentColor: "var(--fk-brand)", cursor: "pointer" }}
+          />
+        </div>
 
-        <button
-          onClick={() => setOpen(true)}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
-          style={{
-            display: "flex", alignItems: "center", gap: 16,
-            width: "100%",
-            padding: "16px 24px 16px 0",
-            background: hovered ? "var(--fk-card-2)" : "transparent",
-            border: "none",
-            borderBottom: isLast ? "none" : "1px solid var(--fk-line)",
-            cursor: "pointer", textAlign: "left",
-            transition: "background 0.12s",
-          }}
-        >
-          {/* Logo — inset to align with spine */}
-          <div style={{ flexShrink: 0, marginLeft: 44 }}>
-            <CompanyLogo logoUrl={detail?.logo_url ?? null} name={name} size={40} />
-          </div>
-
-          {/* Company name + industry */}
-          <div style={{ flex: "0 0 220px", minWidth: 0 }}>
+        {/* Company name + industry */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <CompanyLogo logoUrl={detail?.logo_url ?? null} name={name} size={40} />
+          <div style={{ minWidth: 0 }}>
             <div style={{
-              fontSize: 16, fontWeight: 700, color: "var(--fk-ink)", lineHeight: 1.25,
+              fontSize: 15, fontWeight: 700, color: "var(--fk-ink)", lineHeight: 1.25,
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}>
               {name}
             </div>
-            {detail?.industry ? (
-              <div style={{ fontSize: 13, color: "var(--fk-ink-4)", marginTop: 2 }}>
-                {detail.industry}
-              </div>
-            ) : <div style={{ height: 18 }} />}
-          </div>
-
-          {/* Role + date range */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontSize: 14, fontWeight: 500, color: "var(--fk-ink-2)", lineHeight: 1.25,
-              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            }}>
-              {title}
-            </div>
-            <div style={{ fontSize: 13, color: "var(--fk-ink-4)", marginTop: 2 }}>
-              {dateRange}
+            <div style={{ fontSize: 12, color: "var(--fk-ink-4)", marginTop: 2, minHeight: 16 }}>
+              {detail?.industry ?? ""}
             </div>
           </div>
+        </div>
 
-          {/* Badges: duration + stage + funding */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-            {totalMonths > 0 && (
-              <span style={{
-                fontSize: 12, fontWeight: 500,
-                padding: "3px 10px", borderRadius: 999,
-                background: "var(--fk-card-2)",
-                border: "1px solid var(--fk-line)",
-                color: "var(--fk-ink-3)",
-                whiteSpace: "nowrap",
-              }}>
-                {fmtMonths(totalMonths)}
-              </span>
-            )}
-            {stageBadge(detail?.stage ?? null)}
-            {detail?.total_funding_usd ? (
-              <span style={{
-                fontSize: 12, fontWeight: 500,
-                padding: "3px 10px", borderRadius: 999,
-                background: "rgba(47,106,240,0.08)",
-                border: "1px solid rgba(47,106,240,0.15)",
-                color: "var(--fk-blue)",
-                whiteSpace: "nowrap",
-              }}>
-                {fmtUsd(detail.total_funding_usd)}
-              </span>
-            ) : null}
-          </div>
+        {/* Date range */}
+        <div style={{ fontSize: 13, color: "var(--fk-ink-3)" }}>
+          {dateRange}
+        </div>
 
-          {/* Chevron */}
-          <ChevronRight
-            size={16}
-            color="var(--fk-ink-5)"
-            style={{
-              flexShrink: 0,
-              transition: "transform 0.12s",
-              transform: hovered ? "translateX(3px)" : "translateX(0)",
-            }}
-          />
-        </button>
+        {/* Duration */}
+        <div style={{ fontSize: 13, color: "var(--fk-ink-3)" }}>
+          {totalMonths > 0 ? fmtMonths(totalMonths) : "—"}
+        </div>
+
+        {/* Status */}
+        <div>
+          <StatusBadge isCurrent={isCurrent} stage={detail?.stage ?? null} />
+        </div>
+
+        {/* 3-dot menu */}
+        <div
+          onClick={e => { e.stopPropagation(); setOpen(true) }}
+          onMouseEnter={() => setMenuHovered(true)}
+          onMouseLeave={() => setMenuHovered(false)}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 28, height: 28, borderRadius: 6,
+            background: menuHovered ? "var(--fk-line)" : "transparent",
+            cursor: "pointer",
+            opacity: hovered ? 1 : 0,
+            transition: "opacity 0.12s, background 0.12s",
+          }}
+        >
+          <MoreVertical size={15} color="var(--fk-ink-3)" />
+        </div>
       </div>
 
-      {open && (
-        <CompanyDetailModal
-          events={events}
-          resume_experience={resume_experience}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {open && (
+          <CompanyDetailModal
+            events={events}
+            resume_experience={resume_experience}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </>
   )
 }
@@ -179,7 +214,7 @@ interface CompaniesSectionProps {
 
 export function CompaniesSection({ events, resume_experience }: CompaniesSectionProps) {
   const expEvents = events.filter(e => e.type === "experience")
-  const grouped = new Map<string, TimelineEvent[]>()
+  const grouped   = new Map<string, TimelineEvent[]>()
   for (const ev of expEvents) {
     const key = ev.entity.toLowerCase().trim()
     if (!grouped.has(key)) grouped.set(key, [])
@@ -199,29 +234,51 @@ export function CompaniesSection({ events, resume_experience }: CompaniesSection
       width: "100%",
     }}>
       {/* Header */}
-      <div style={{ padding: "22px 24px 16px" }}>
-        <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--fk-ink)" }}>
-          Companies
+      <div style={{
+        padding: "20px 24px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+      }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--fk-ink)" }}>
+            Companies
+          </div>
+          <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 2 }}>
+            {companies.length} {companies.length === 1 ? "company" : "companies"} you&apos;ve worked at
+          </div>
         </div>
-        <div style={{ fontSize: 15, color: "var(--fk-ink-3)", marginTop: 2 }}>
-          {companies.length} {companies.length === 1 ? "company" : "companies"} you&apos;ve worked at
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button style={{
+            display: "flex", alignItems: "center", justifyContent: "center",
+            width: 34, height: 34, borderRadius: 8,
+            background: "transparent", border: "1px solid var(--fk-line)",
+            cursor: "pointer",
+          }}>
+            <Search size={15} color="var(--fk-ink-3)" />
+          </button>
+          <button style={{
+            display: "inline-flex", alignItems: "center", gap: 6,
+            padding: "7px 14px", borderRadius: 8,
+            background: "transparent", border: "1px solid var(--fk-line)",
+            fontSize: 13, fontWeight: 500, color: "var(--fk-ink-2)",
+            cursor: "pointer",
+          }}>
+            <SlidersHorizontal size={13} />
+            Filters
+          </button>
         </div>
       </div>
 
       {/* Divider */}
-      <div style={{ height: 1, background: "var(--fk-line)", margin: "0 0 0 0" }} />
+      <div style={{ height: 1, background: "var(--fk-line)" }} />
 
-      {/* Timeline list */}
-      <div style={{ position: "relative", padding: "0 0 0 0" }}>
-        {/* Vertical spine */}
-        <div style={{
-          position: "absolute",
-          left: 27, top: 0, bottom: 0,
-          width: 1,
-          background: "var(--fk-line-2)",
-          pointerEvents: "none",
-        }} />
+      {/* Column headers */}
+      <ColHeader />
 
+      {/* Rows */}
+      <div style={{ overflowX: "auto" }}>
         {companies.map((evs, i) => (
           <CompanyRow
             key={evs[0].entity}

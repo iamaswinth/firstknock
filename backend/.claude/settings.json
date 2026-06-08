@@ -21,7 +21,8 @@
       "Bash(.venv/Scripts/python.exe scripts/inspect_compiled.py shubhamlagoon12@gmail.com)",
       "Bash(.venv/Scripts/python.exe scripts/inspect_compiled.py)",
       "Bash(.venv/Scripts/python.exe scripts/recompile_and_rebuild.py 0ee93e93-da55-48c7-b19a-f1a32931355b)",
-      "Bash(.venv/Scripts/python.exe scripts/recompile_and_rebuild.py)"
+      "Bash(.venv/Scripts/python.exe scripts/recompile_and_rebuild.py)",
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\backend\" -Recurse -Directory)"
     ],
     "additionalDirectories": [
       "c:\\Users\\iamas\\Storage\\FIRSTKNOCK"

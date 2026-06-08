@@ -23,7 +23,16 @@
       "Bash(py -3.12 -m pip list)",
       "Bash(findstr -i \"pgvector pydantic httpx firstknock celery\")",
       "Bash(netstat -ano)",
-      "Bash(.venv/Scripts/python.exe -m pytest tests/resolution/test_entity_normalizer.py -v)"
+      "Bash(.venv/Scripts/python.exe -m pytest tests/resolution/test_entity_normalizer.py -v)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'fix: coerce unknown location prop to boolean to satisfy ReactNode type check *)",
+      "Bash(git commit -m 'fix: coerce unknown props to boolean in StudiedAtDetail JSX conditions *)",
+      "Bash(git commit --allow-empty -m 'ci: trigger Vercel redeploy on latest commit *)",
+      "Bash(git commit -m 'fix: make ProcessingStatus context prop optional for standalone processing page *)",
+      "Bash(node -e \"require\\('framer-motion'\\); console.log\\('ok'\\)\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\iamas\\Storage\\FIRSTKNOCK\\firstknock\\app\\processing",

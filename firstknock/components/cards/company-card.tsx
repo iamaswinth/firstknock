@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Building2, X, ExternalLink, Globe, Users, MapPin, Calendar, DollarSign, Link2 } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Building2, X, Globe, Users, MapPin, Calendar, DollarSign, Link2, Briefcase, Pencil, Share2, MoreHorizontal } from "lucide-react"
 import type { TimelineEvent, ExperienceEntry } from "@/lib/api/types"
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -82,180 +83,297 @@ interface ModalProps {
 }
 
 export function CompanyDetailModal({ events, resume_experience, onClose }: ModalProps) {
-  const detail = events[0]?.company_detail
-  const name = events[0]?.entity ?? ""
+  const [activeTab, setActiveTab] = useState<"roles" | "team" | "investors">("roles")
+
+  const detail      = events[0]?.company_detail
+  const name        = events[0]?.entity ?? ""
+  const totalMonths = events.reduce((sum, e) => sum + (e.months ?? 0), 0)
+  const tenurePct   = Math.min(Math.round((totalMonths / 60) * 100), 100)
+  const firstRole   = events[0]?.label.split("·")[0].trim() ?? ""
+  const hasLinks    = !!(detail?.website || detail?.linkedin_url)
+  const hasTeam     = !!(detail?.ceo || detail?.founders?.length)
+  const hasInvestors = !!(detail?.key_investors?.length)
 
   const matchedExp = resume_experience.filter(e =>
     e.company.toLowerCase().includes(name.toLowerCase()) ||
     name.toLowerCase().includes(e.company.toLowerCase())
   )
 
-  const totalMonths = events.reduce((sum, e) => sum + (e.months ?? 0), 0)
+  function fmtDate(iso: string | null | undefined): string {
+    if (!iso) return "Present"
+    try { return new Date(iso).toLocaleDateString("en-US", { month: "short", year: "numeric" }) }
+    catch { return iso.slice(0, 7) }
+  }
+
+  const headerBtn = (child: React.ReactNode, onClick?: () => void) => (
+    <button
+      onClick={onClick}
+      style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: 7, border: "1px solid var(--fk-line)", background: "transparent", cursor: "pointer", color: "var(--fk-ink-3)" }}
+    >
+      {child}
+    </button>
+  )
 
   return (
     <>
       {/* Backdrop */}
-      <div
+      <motion.div
         onClick={onClose}
-        style={{
-          position: "fixed", inset: 0, zIndex: 100,
-          background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)",
-        }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
       />
-      {/* Panel */}
-      <div style={{
-        position: "fixed", top: "50%", left: "50%", zIndex: 101,
-        transform: "translate(-50%,-50%)",
-        width: "min(680px, calc(100vw - 32px))",
-        maxHeight: "calc(100vh - 48px)",
-        overflowY: "auto",
-        background: "var(--fk-card)",
-        border: "1px solid var(--fk-line)",
-        borderRadius: "var(--fk-radius-lg)",
-        boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
-      }}>
-        {/* Header */}
-        <div style={{ padding: "24px 28px 20px", display: "flex", alignItems: "flex-start", gap: 16 }}>
-          <CompanyLogo logoUrl={detail?.logo_url ?? null} name={name} size={56} />
+
+      {/* Drawer panel */}
+      <motion.div
+        initial={{ x: "calc(100% + 16px)" }}
+        animate={{ x: 0 }}
+        exit={{ x: "calc(100% + 16px)" }}
+        transition={{ type: "spring", stiffness: 320, damping: 32 }}
+        style={{
+          position: "fixed", top: 12, right: 12, bottom: 12, zIndex: 101,
+          width: "min(560px, calc(100vw - 24px))",
+          overflowY: "auto",
+          background: "var(--fk-card)", border: "1px solid var(--fk-line)",
+          borderRadius: "var(--fk-radius-lg)",
+          boxShadow: "0 24px 64px rgba(0,0,0,0.18)",
+        }}
+      >
+
+        {/* ── Header bar ── */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 20px", borderBottom: "1px solid var(--fk-line)",
+          position: "sticky", top: 0, background: "var(--fk-card)", zIndex: 1,
+        }}>
+          {headerBtn(<X size={15} />, onClose)}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {headerBtn(<Pencil size={14} />)}
+            {headerBtn(<Share2 size={14} />)}
+            {headerBtn(<MoreHorizontal size={14} />)}
+          </div>
+        </div>
+
+        {/* ── Title block ── */}
+        <div style={{ padding: "20px 24px 0", display: "flex", alignItems: "flex-start", gap: 14 }}>
+          <CompanyLogo logoUrl={detail?.logo_url ?? null} name={name} size={48} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <h2 style={{ fontSize: 22, fontWeight: 700, color: "var(--fk-ink)", margin: 0 }}>{name}</h2>
+              <h2 style={{ fontSize: 26, fontWeight: 700, color: "var(--fk-ink)", margin: 0, lineHeight: 1.2 }}>{name}</h2>
               {stageBadge(detail?.stage ?? null)}
-              {detail?.domain && (
-                <span style={{ fontSize: 12, padding: "2px 8px", borderRadius: 999, background: "var(--fk-card-2)", color: "var(--fk-ink-3)", border: "1px solid var(--fk-line)" }}>
-                  {detail.domain}
-                </span>
-              )}
             </div>
             {detail?.industry && (
-              <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 4 }}>{detail.industry}</div>
+              <div style={{ fontSize: 15, color: "var(--fk-ink-4)", marginTop: 4 }}>{detail.industry}</div>
             )}
-            <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+          </div>
+        </div>
+
+        {/* ── Metadata rows ── */}
+        <div style={{ padding: "14px 24px 0" }}>
+          {detail?.founded     && <MetaRow icon={<Calendar   size={14} />} label="Founded"       value={String(detail.founded)} />}
+          {detail?.headquarters && <MetaRow icon={<MapPin     size={14} />} label="Headquarters"  value={detail.headquarters} />}
+          {detail?.headcount   && <MetaRow icon={<Users       size={14} />} label="Headcount"     value={`~${detail.headcount.toLocaleString()}`} />}
+          {detail?.total_funding_usd && <MetaRow icon={<DollarSign size={14} />} label="Total Funding" value={fmtUsd(detail.total_funding_usd)} />}
+
+          {/* Tenure progress row */}
+          {totalMonths > 0 && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--fk-line-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Briefcase size={14} color="var(--fk-ink-4)" />
+                <span style={{ fontSize: 15, color: "var(--fk-ink-4)", fontWeight: 500 }}>Tenure</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 100, height: 6, borderRadius: 999, background: "var(--fk-line)", overflow: "hidden" }}>
+                  <div style={{ width: `${tenurePct}%`, height: "100%", background: "var(--fk-blue)", borderRadius: 999 }} />
+                </div>
+                <span style={{ fontSize: 15, color: "var(--fk-ink-3)", fontWeight: 500, minWidth: 40, textAlign: "right" }}>
+                  {fmtMonths(totalMonths)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Your role row */}
+          {firstRole && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--fk-line-2)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Building2 size={14} color="var(--fk-ink-4)" />
+                <span style={{ fontSize: 15, color: "var(--fk-ink-4)", fontWeight: 500 }}>Your Role</span>
+              </div>
+              <span style={{ fontSize: 15, color: "var(--fk-ink-2)", fontWeight: 500 }}>{firstRole}</span>
+            </div>
+          )}
+        </div>
+
+        {/* ── Description block ── */}
+        {detail?.description && (
+          <div style={{ padding: "16px 24px 0" }}>
+            <div style={{ background: "var(--fk-card-2)", borderRadius: 10, padding: "14px 16px", fontSize: 15, color: "var(--fk-ink-3)", lineHeight: 1.65 }}>
+              {detail.description}
+            </div>
+          </div>
+        )}
+
+        {/* ── Links section ── */}
+        {hasLinks && (
+          <div style={{ padding: "16px 24px 0" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--fk-ink-4)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Links</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {detail?.website && (
-                <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "var(--fk-ink-3)", textDecoration: "none" }}>
-                  <Globe size={12} /> Website
+                <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "var(--fk-card-2)", border: "1px solid var(--fk-line)", borderRadius: 10, textDecoration: "none", color: "var(--fk-ink-2)", fontSize: 15, fontWeight: 500 }}>
+                  <Globe size={15} color="var(--fk-ink-3)" />
+                  Website
+                  <span style={{ fontSize: 13, color: "var(--fk-ink-4)" }}>
+                    {detail.website.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]}
+                  </span>
                 </a>
               )}
               {detail?.linkedin_url && (
-                <a href={detail.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "#0a66c2", textDecoration: "none" }}>
-                  <Link2 size={12} /> LinkedIn
+                <a href={detail.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "var(--fk-card-2)", border: "1px solid var(--fk-line)", borderRadius: 10, textDecoration: "none", color: "var(--fk-ink-2)", fontSize: 15, fontWeight: 500 }}>
+                  <Link2 size={14} color="#0a66c2" />
+                  LinkedIn
                 </a>
               )}
             </div>
           </div>
-          <button onClick={onClose} style={{ border: "none", background: "none", cursor: "pointer", color: "var(--fk-ink-3)", padding: 4, borderRadius: 6 }}>
-            <X size={18} />
-          </button>
-        </div>
-
-        <div style={{ height: 1, background: "var(--fk-line)", margin: "0 28px" }} />
-
-        {/* Description */}
-        {detail?.description && (
-          <div style={{ padding: "18px 28px 0", fontSize: 15, color: "var(--fk-ink-3)", lineHeight: 1.65 }}>
-            {detail.description}
-          </div>
         )}
 
-        {/* Stats grid */}
-        {detail && (
-          <div style={{ padding: "18px 28px 0", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 12 }}>
-            {detail.founded && (
-              <StatChip icon={<Calendar size={13} />} label="Founded" value={String(detail.founded)} />
-            )}
-            {detail.headcount && (
-              <StatChip icon={<Users size={13} />} label="Headcount" value={`~${detail.headcount.toLocaleString()}`} />
-            )}
-            {detail.headquarters && (
-              <StatChip icon={<MapPin size={13} />} label="HQ" value={detail.headquarters} />
-            )}
-            {detail.total_funding_usd && (
-              <StatChip icon={<DollarSign size={13} />} label="Total Funding" value={fmtUsd(detail.total_funding_usd)} />
-            )}
+        {/* ── Tabs ── */}
+        <div style={{ padding: "20px 24px 0" }}>
+          <div style={{ display: "flex", borderBottom: "1px solid var(--fk-line)" }}>
+            {([
+              { key: "roles"     as const, label: "Roles",     count: events.length },
+              { key: "team"      as const, label: "Team",      count: 0 },
+              { key: "investors" as const, label: "Investors", count: detail?.key_investors?.length ?? 0 },
+            ]).map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                  padding: "8px 14px", border: "none", background: "transparent",
+                  cursor: "pointer", fontSize: 14, fontWeight: 500,
+                  color: activeTab === tab.key ? "var(--fk-ink)" : "var(--fk-ink-4)",
+                  borderBottom: activeTab === tab.key ? "2px solid var(--fk-blue)" : "2px solid transparent",
+                  marginBottom: -1, transition: "color 0.12s",
+                }}
+              >
+                {tab.label}
+                {tab.count > 0 && (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: "1px 6px", borderRadius: 999,
+                    background: activeTab === tab.key ? "var(--fk-blue)" : "var(--fk-line)",
+                    color: activeTab === tab.key ? "#fff" : "var(--fk-ink-4)",
+                  }}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-        )}
 
-        {/* Investors */}
-        {detail?.key_investors?.length ? (
-          <div style={{ padding: "16px 28px 0" }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "var(--fk-ink-4)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 8 }}>Investors</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {detail.key_investors.map(inv => (
-                <span key={inv} style={{ fontSize: 13, padding: "3px 9px", borderRadius: 999, background: "var(--fk-card-2)", color: "var(--fk-ink-3)", border: "1px solid var(--fk-line)" }}>
-                  {inv}
-                </span>
-              ))}
-            </div>
-          </div>
-        ) : null}
+          <div style={{ paddingTop: 16, paddingBottom: 24 }}>
 
-        {/* People */}
-        {(detail?.ceo || detail?.founders?.length) ? (
-          <div style={{ padding: "16px 28px 0", display: "flex", gap: 24 }}>
-            {detail?.ceo && <PersonInfo label="CEO" name={detail.ceo} />}
-            {detail?.founders?.length ? <PersonInfo label="Founders" name={detail.founders.join(", ")} /> : null}
-          </div>
-        ) : null}
-
-        {/* Your time here */}
-        <div style={{ margin: "20px 28px 0" }}>
-          <div style={{ height: 1, background: "var(--fk-line)" }} />
-          <div style={{ padding: "16px 0 0" }}>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fk-ink)", marginBottom: 14 }}>
-              Your time here · {fmtMonths(totalMonths)}
-            </div>
-            {events.map(ev => {
-              const title = ev.label.split("·")[0].trim()
-              const period = [ev.start_date?.slice(0, 7), ev.end_date?.slice(0, 7) ?? "Present"].join(" – ")
+            {/* Roles tab */}
+            {activeTab === "roles" && events.map((ev, i) => {
+              const title   = ev.label.split("·")[0].trim()
+              const period  = `${fmtDate(ev.start_date)} – ${ev.is_current ? "Present" : fmtDate(ev.end_date)}`
               const bullets = matchedExp.find(e => e.title === title)?.description ?? []
               return (
-                <div key={ev.id} style={{ marginBottom: 16 }}>
-                  <div style={{ fontSize: 15, fontWeight: 600, color: "var(--fk-ink)" }}>{title}</div>
-                  <div style={{ fontSize: 13, color: "var(--fk-ink-4)", marginTop: 2 }}>{period} · {fmtMonths(ev.months)}</div>
-                  {ev.tech_stack.length > 0 && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
-                      {ev.tech_stack.map(t => (
-                        <span key={t} style={{ fontSize: 12, padding: "2px 8px", borderRadius: 999, background: "var(--fk-card-2)", color: "var(--fk-ink-3)", border: "1px solid var(--fk-line)" }}>
-                          {t}
-                        </span>
-                      ))}
+                <div key={ev.id} style={{ paddingBottom: 16, marginBottom: i < events.length - 1 ? 16 : 0, borderBottom: i < events.length - 1 ? "1px dashed var(--fk-line)" : "none" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <input type="checkbox" readOnly style={{ marginTop: 3, width: 14, height: 14, accentColor: "var(--fk-blue)", flexShrink: 0, cursor: "default" }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--fk-ink)" }}>{title}</div>
+                      <div style={{ fontSize: 13, color: "var(--fk-ink-4)", marginTop: 3 }}>
+                        {period}{ev.months ? ` · ${fmtMonths(ev.months)}` : ""}
+                      </div>
+                      {bullets.length > 0 && (
+                        <div style={{ marginTop: 8, fontSize: 14, color: "var(--fk-ink-3)", lineHeight: 1.6 }}>
+                          {bullets.slice(0, 2).map((b, bi) => (
+                            <div key={bi} style={{ marginBottom: 4 }}>· {b}</div>
+                          ))}
+                        </div>
+                      )}
+                      {ev.tech_stack.length > 0 && (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 8 }}>
+                          {ev.tech_stack.map(t => (
+                            <span key={t} style={{ fontSize: 12, padding: "2px 8px", borderRadius: 999, background: "var(--fk-card-2)", color: "var(--fk-ink-3)", border: "1px solid var(--fk-line)" }}>
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                  {bullets.length > 0 && (
-                    <ul style={{ margin: "8px 0 0 16px", padding: 0, listStyle: "disc" }}>
-                      {bullets.map((b, i) => (
-                        <li key={i} style={{ fontSize: 14, color: "var(--fk-ink-3)", lineHeight: 1.55, marginBottom: 3 }}>{b}</li>
-                      ))}
-                    </ul>
-                  )}
+                    <CompanyLogo logoUrl={detail?.logo_url ?? null} name={name} size={24} />
+                  </div>
                 </div>
               )
             })}
+
+            {/* Team tab */}
+            {activeTab === "team" && (
+              hasTeam ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {detail?.ceo       && <TeamRow label="CEO"      names={[detail.ceo]} />}
+                  {detail?.founders?.length ? <TeamRow label="Founders" names={detail.founders} /> : null}
+                </div>
+              ) : <ModalEmptyState message="No team information available" />
+            )}
+
+            {/* Investors tab */}
+            {activeTab === "investors" && (
+              hasInvestors ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {detail!.key_investors!.map(inv => (
+                    <span key={inv} style={{ fontSize: 14, padding: "5px 12px", borderRadius: 999, background: "var(--fk-card-2)", color: "var(--fk-ink-3)", border: "1px solid var(--fk-line)", fontWeight: 500 }}>
+                      {inv}
+                    </span>
+                  ))}
+                </div>
+              ) : <ModalEmptyState message="No investor data available" />
+            )}
+
           </div>
         </div>
-
-        <div style={{ height: 24 }} />
-      </div>
+      </motion.div>
     </>
   )
 }
 
-function StatChip({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3, padding: "10px 12px", background: "var(--fk-card-2)", borderRadius: 10, border: "1px solid var(--fk-line)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 5, color: "var(--fk-ink-4)", fontSize: 12 }}>
-        {icon} {label}
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--fk-line-2)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--fk-ink-4)" }}>
+        {icon}
+        <span style={{ fontSize: 15, fontWeight: 500 }}>{label}</span>
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fk-ink)" }}>{value}</div>
+      <span style={{ fontSize: 15, color: "var(--fk-ink-2)", fontWeight: 500 }}>{value}</span>
     </div>
   )
 }
 
-function PersonInfo({ label, name }: { label: string; name: string }) {
+function TeamRow({ label, names }: { label: string; names: string[] }) {
+  const initials = names[0].split(/\s+/).slice(0, 2).map(w => w[0] ?? "").join("").toUpperCase()
   return (
-    <div>
-      <div style={{ fontSize: 12, color: "var(--fk-ink-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>{label}</div>
-      <div style={{ fontSize: 14, color: "var(--fk-ink)" }}>{name}</div>
+    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--fk-card-2)", border: "1px solid var(--fk-line)", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 700, color: "var(--fk-ink-3)", flexShrink: 0 }}>
+        {initials}
+      </div>
+      <div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fk-ink-4)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
+        <div style={{ fontSize: 15, color: "var(--fk-ink)", marginTop: 2 }}>{names.join(", ")}</div>
+      </div>
+    </div>
+  )
+}
+
+function ModalEmptyState({ message }: { message: string }) {
+  return (
+    <div style={{ textAlign: "center", padding: "24px 0", fontSize: 13, color: "var(--fk-ink-4)" }}>
+      {message}
     </div>
   )
 }
@@ -320,13 +438,15 @@ export function CompanyCard({ events, resume_experience }: CompanyCardProps) {
         </div>
       </button>
 
-      {open && (
-        <CompanyDetailModal
-          events={events}
-          resume_experience={resume_experience}
-          onClose={() => setOpen(false)}
-        />
-      )}
+      <AnimatePresence>
+        {open && (
+          <CompanyDetailModal
+            events={events}
+            resume_experience={resume_experience}
+            onClose={() => setOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </>
   )
 }
