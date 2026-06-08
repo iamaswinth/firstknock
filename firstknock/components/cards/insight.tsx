@@ -26,7 +26,7 @@ export function Insight({ bridgeSkills, roles }: InsightProps) {
           <span style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "5px 11px", borderRadius: 999,
-            fontSize: 13, fontWeight: 600, color: "#fff",
+            fontSize: 14, fontWeight: 600, color: "#fff",
             background: "rgba(255,255,255,0.18)", backdropFilter: "blur(4px)",
             border: "1px solid rgba(255,255,255,0.25)",
           }}>
@@ -56,7 +56,7 @@ export function Insight({ bridgeSkills, roles }: InsightProps) {
             </div>
           </div>
         ) : (
-          <p style={{ marginTop: 20, fontSize: 13, color: "rgba(255,255,255,0.65)" }}>
+          <p style={{ marginTop: 20, fontSize: 14, color: "rgba(255,255,255,0.65)" }}>
             Role analysis pending.
           </p>
         )}
@@ -78,7 +78,7 @@ export function Insight({ bridgeSkills, roles }: InsightProps) {
             </div>
           </>
         ) : (
-          <p style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>
+          <p style={{ fontSize: 14, color: "rgba(255,255,255,0.65)" }}>
             Graph analysis pending — re-ingest to generate.
           </p>
         )}

@@ -16,9 +16,9 @@ export function EmptyDashboard({ name, onUpload }: EmptyDashboardProps) {
         background: "var(--fk-page)",
         minHeight: "100vh",
         width: "100%",
-        maxWidth: 1500,
+        maxWidth: 1280,
         margin: "0 auto",
-        padding: "18px 22px 26px",
+        padding: "24px 48px 40px",
         display: "flex",
         flexDirection: "column",
       }}

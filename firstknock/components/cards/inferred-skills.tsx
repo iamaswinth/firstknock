@@ -59,7 +59,7 @@ export function InferredSkills({ skills }: { skills: InferredSkillDetail[] }) {
                       <span key={v} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         {vi > 0 && <span style={{ color: "var(--fk-ink-4)" }}>·</span>}
                         <span style={{
-                          padding: "4px 10px", fontSize: 13, fontWeight: 500,
+                          padding: "4px 10px", fontSize: 14, fontWeight: 500,
                           color: "var(--fk-ink-2)", background: "var(--fk-card-2)",
                           border: "1px solid var(--fk-line)", borderRadius: 8,
                         }}>{v}</span>
@@ -69,7 +69,7 @@ export function InferredSkills({ skills }: { skills: InferredSkillDetail[] }) {
                       <ArrowRight size={15} strokeWidth={1.8} />
                     </span>
                     <span style={{
-                      padding: "4px 10px", fontSize: 13, fontWeight: 500,
+                      padding: "4px 10px", fontSize: 14, fontWeight: 500,
                       color: "var(--fk-ink-3)", background: "transparent",
                       border: "1px dashed var(--fk-line-2)", borderRadius: 8,
                     }}>{s.name}</span>

@@ -34,7 +34,7 @@ function PillList({ items, color }: { items: string[]; color: "brand" | "indigo"
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
       {items.map(s => (
-        <span key={s} style={{ fontSize: 13, padding: "3px 9px", borderRadius: 999, background: p.bg, color: p.text, border: `1px solid ${p.border}` }}>
+        <span key={s} style={{ fontSize: 14, padding: "3px 9px", borderRadius: 999, background: p.bg, color: p.text, border: `1px solid ${p.border}` }}>
           {s}
         </span>
       ))}
@@ -113,13 +113,13 @@ function ProjectModal({ project, repo, onClose }: ProjectModalProps) {
             <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
               {project.github_url && (
                 <a href={project.github_url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "var(--fk-ink-3)", textDecoration: "none" }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--fk-ink-3)", textDecoration: "none" }}>
                   <GitBranch size={12} /> GitHub
                 </a>
               )}
               {project.url && (
                 <a href={project.url} target="_blank" rel="noopener noreferrer"
-                  style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 13, color: "var(--fk-ink-3)", textDecoration: "none" }}>
+                  style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 14, color: "var(--fk-ink-3)", textDecoration: "none" }}>
                   <ExternalLink size={12} /> Live
                 </a>
               )}
@@ -133,7 +133,7 @@ function ProjectModal({ project, repo, onClose }: ProjectModalProps) {
         <div style={{ height: 1, background: "var(--fk-line)", margin: "0 28px" }} />
 
         {/* Description */}
-        <div style={{ padding: "18px 28px 0", fontSize: 15, color: "var(--fk-ink-3)", lineHeight: 1.65 }}>
+        <div style={{ padding: "18px 28px 0", fontSize: 16, color: "var(--fk-ink-3)", lineHeight: 1.65 }}>
           {project.description || repo?.readme_summary || "No description available."}
         </div>
 

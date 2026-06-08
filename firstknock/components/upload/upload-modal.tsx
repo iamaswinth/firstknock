@@ -220,7 +220,7 @@ function UploadStep({ file, setFile, dragging, setDragging, onDrop, inputRef, em
           <p style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.015em", color: "var(--fk-ink)", margin: 0 }}>
             {isReingest ? "Update your résumé" : "Analyse your résumé"}
           </p>
-          <p style={{ fontSize: 13, color: "var(--fk-ink-3)", margin: "4px 0 0", lineHeight: 1.5 }}>
+          <p style={{ fontSize: 14, color: "var(--fk-ink-3)", margin: "4px 0 0", lineHeight: 1.5 }}>
             {isReingest
               ? "Upload a new file — your old data will be replaced."
               : "We'll parse it, build a skill graph, and infer hidden skills."}
@@ -302,7 +302,7 @@ function UploadStep({ file, setFile, dragging, setDragging, onDrop, inputRef, em
           style={{
             height: 38, width: "100%", boxSizing: "border-box",
             border: "1px solid var(--fk-line-2)", borderRadius: 10,
-            padding: "0 12px", fontSize: 13,
+            padding: "0 12px", fontSize: 14,
             background: "var(--fk-well)", color: "var(--fk-ink-3)",
             outline: "none",
           }}
@@ -310,7 +310,7 @@ function UploadStep({ file, setFile, dragging, setDragging, onDrop, inputRef, em
       </div>
 
       {error && (
-        <p style={{ fontSize: 13, color: "var(--fk-pink)", margin: 0 }}>{error}</p>
+        <p style={{ fontSize: 14, color: "var(--fk-pink)", margin: 0 }}>{error}</p>
       )}
 
       <button
@@ -344,7 +344,7 @@ function ProcessingStep({ status, context }: { status: string; context: ResumeCo
         <p style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.015em", color: "var(--fk-ink)", margin: 0 }}>
           Building your profile
         </p>
-        <p style={{ fontSize: 13, color: "var(--fk-ink-3)", margin: "4px 0 0" }}>
+        <p style={{ fontSize: 14, color: "var(--fk-ink-3)", margin: "4px 0 0" }}>
           Hang tight — usually done in under a minute.
         </p>
       </div>
@@ -384,7 +384,7 @@ function DoneStep({ onClose }: { onClose: () => void }) {
         <p style={{ fontSize: 20, fontWeight: 600, letterSpacing: "-0.015em", color: "var(--fk-ink)", margin: 0 }}>
           Your graph is ready ✦
         </p>
-        <p style={{ fontSize: 13, color: "var(--fk-ink-3)", margin: "6px 0 0" }}>
+        <p style={{ fontSize: 14, color: "var(--fk-ink-3)", margin: "6px 0 0" }}>
           Closing in a moment…
         </p>
       </div>

@@ -14,7 +14,7 @@ export function BridgeSkills({ bridgeSkills }: { bridgeSkills: BridgeSkill[] | n
   if (!bridgeSkills) {
     return (
       <CardShell title="Bridge Skills" sub="MAGE betweenness centrality" id="skills">
-        <p style={{ fontSize: 13, color: "var(--fk-ink-3)" }}>
+        <p style={{ fontSize: 14, color: "var(--fk-ink-3)" }}>
           MAGE not installed — community analysis unavailable.
         </p>
       </CardShell>
@@ -44,7 +44,7 @@ export function BridgeSkills({ bridgeSkills }: { bridgeSkills: BridgeSkill[] | n
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 7 }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: "var(--fk-ink)" }}>{b.name}</span>
                 <span style={{ fontSize: 12, color: "var(--fk-ink-4)" }}>{b.category}</span>
-                <span style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: "var(--fk-blue)" }}>
+                <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 700, color: "var(--fk-blue)" }}>
                   {b.centrality.toFixed(2)}
                 </span>
               </div>

@@ -25,7 +25,7 @@ export function ProjectsSection({ projects, pinnedRepos }: ProjectsSectionProps)
       overflow: "hidden",
       width: "100%",
     }}>
-      <div style={{ padding: "20px 22px 16px", display: "flex", alignItems: "center" }}>
+      <div style={{ padding: "24px 28px 16px", display: "flex", alignItems: "center" }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 600, letterSpacing: "-0.01em", color: "var(--fk-ink)" }}>
             Projects
@@ -37,7 +37,7 @@ export function ProjectsSection({ projects, pinnedRepos }: ProjectsSectionProps)
       </div>
       <div style={{
         display: "flex", gap: 12, overflowX: "auto",
-        padding: "4px 22px 22px",
+        padding: "4px 28px 28px",
         scrollbarWidth: "none",
       }}>
         {projects.map((p) => (

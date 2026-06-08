@@ -59,7 +59,7 @@ export function PinnedRepos({ repos, githubUser }: { repos: PinnedRepo[]; github
                 </span>
               </div>
 
-              <p style={{ fontSize: 13, color: "var(--fk-ink-3)", lineHeight: 1.5, margin: "7px 0 0" }}>
+              <p style={{ fontSize: 14, color: "var(--fk-ink-3)", lineHeight: 1.5, margin: "7px 0 0" }}>
                 {p.readme_summary || p.topics.join(", ")}
               </p>
 

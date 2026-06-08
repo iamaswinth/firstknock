@@ -340,10 +340,10 @@ function DetailPanel({ event, onClose }: { event: TimelineEvent; onClose: () => 
       {/* Header row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: "var(--fk-ink)", letterSpacing: "-0.01em" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fk-ink)", letterSpacing: "-0.01em" }}>
             {event.entity}
           </div>
-          <div style={{ fontSize: 13, color: "var(--fk-ink-3)", marginTop: 2 }}>
+          <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 2 }}>
             {event.type === "experience"
               ? event.label.split(" · ")[0]   // title part
               : event.field ?? event.label}

@@ -165,7 +165,7 @@ export function CompanyDetailModal({ events, resume_experience, onClose }: Modal
               {stageBadge(detail?.stage ?? null)}
             </div>
             {detail?.industry && (
-              <div style={{ fontSize: 15, color: "var(--fk-ink-4)", marginTop: 4 }}>{detail.industry}</div>
+              <div style={{ fontSize: 16, color: "var(--fk-ink-4)", marginTop: 4 }}>{detail.industry}</div>
             )}
           </div>
         </div>
@@ -182,13 +182,13 @@ export function CompanyDetailModal({ events, resume_experience, onClose }: Modal
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--fk-line-2)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Briefcase size={14} color="var(--fk-ink-4)" />
-                <span style={{ fontSize: 15, color: "var(--fk-ink-4)", fontWeight: 500 }}>Tenure</span>
+                <span style={{ fontSize: 16, color: "var(--fk-ink-4)", fontWeight: 500 }}>Tenure</span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={{ width: 100, height: 6, borderRadius: 999, background: "var(--fk-line)", overflow: "hidden" }}>
                   <div style={{ width: `${tenurePct}%`, height: "100%", background: "var(--fk-blue)", borderRadius: 999 }} />
                 </div>
-                <span style={{ fontSize: 15, color: "var(--fk-ink-3)", fontWeight: 500, minWidth: 40, textAlign: "right" }}>
+                <span style={{ fontSize: 16, color: "var(--fk-ink-3)", fontWeight: 500, minWidth: 40, textAlign: "right" }}>
                   {fmtMonths(totalMonths)}
                 </span>
               </div>
@@ -200,9 +200,9 @@ export function CompanyDetailModal({ events, resume_experience, onClose }: Modal
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--fk-line-2)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Building2 size={14} color="var(--fk-ink-4)" />
-                <span style={{ fontSize: 15, color: "var(--fk-ink-4)", fontWeight: 500 }}>Your Role</span>
+                <span style={{ fontSize: 16, color: "var(--fk-ink-4)", fontWeight: 500 }}>Your Role</span>
               </div>
-              <span style={{ fontSize: 15, color: "var(--fk-ink-2)", fontWeight: 500 }}>{firstRole}</span>
+              <span style={{ fontSize: 16, color: "var(--fk-ink-2)", fontWeight: 500 }}>{firstRole}</span>
             </div>
           )}
         </div>
@@ -210,7 +210,7 @@ export function CompanyDetailModal({ events, resume_experience, onClose }: Modal
         {/* ── Description block ── */}
         {detail?.description && (
           <div style={{ padding: "16px 24px 0" }}>
-            <div style={{ background: "var(--fk-card-2)", borderRadius: 10, padding: "14px 16px", fontSize: 15, color: "var(--fk-ink-3)", lineHeight: 1.65 }}>
+            <div style={{ background: "var(--fk-card-2)", borderRadius: 10, padding: "14px 16px", fontSize: 16, color: "var(--fk-ink-3)", lineHeight: 1.65 }}>
               {detail.description}
             </div>
           </div>
@@ -222,16 +222,16 @@ export function CompanyDetailModal({ events, resume_experience, onClose }: Modal
             <div style={{ fontSize: 12, fontWeight: 600, color: "var(--fk-ink-4)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Links</div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {detail?.website && (
-                <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "var(--fk-card-2)", border: "1px solid var(--fk-line)", borderRadius: 10, textDecoration: "none", color: "var(--fk-ink-2)", fontSize: 15, fontWeight: 500 }}>
+                <a href={detail.website} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "var(--fk-card-2)", border: "1px solid var(--fk-line)", borderRadius: 10, textDecoration: "none", color: "var(--fk-ink-2)", fontSize: 16, fontWeight: 500 }}>
                   <Globe size={15} color="var(--fk-ink-3)" />
                   Website
-                  <span style={{ fontSize: 13, color: "var(--fk-ink-4)" }}>
+                  <span style={{ fontSize: 14, color: "var(--fk-ink-4)" }}>
                     {detail.website.replace(/^https?:\/\/(www\.)?/, "").split("/")[0]}
                   </span>
                 </a>
               )}
               {detail?.linkedin_url && (
-                <a href={detail.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "var(--fk-card-2)", border: "1px solid var(--fk-line)", borderRadius: 10, textDecoration: "none", color: "var(--fk-ink-2)", fontSize: 15, fontWeight: 500 }}>
+                <a href={detail.linkedin_url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "var(--fk-card-2)", border: "1px solid var(--fk-line)", borderRadius: 10, textDecoration: "none", color: "var(--fk-ink-2)", fontSize: 16, fontWeight: 500 }}>
                   <Link2 size={14} color="#0a66c2" />
                   LinkedIn
                 </a>
@@ -286,8 +286,8 @@ export function CompanyDetailModal({ events, resume_experience, onClose }: Modal
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
                     <input type="checkbox" readOnly style={{ marginTop: 3, width: 14, height: 14, accentColor: "var(--fk-blue)", flexShrink: 0, cursor: "default" }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 15, fontWeight: 600, color: "var(--fk-ink)" }}>{title}</div>
-                      <div style={{ fontSize: 13, color: "var(--fk-ink-4)", marginTop: 3 }}>
+                      <div style={{ fontSize: 16, fontWeight: 600, color: "var(--fk-ink)" }}>{title}</div>
+                      <div style={{ fontSize: 14, color: "var(--fk-ink-4)", marginTop: 3 }}>
                         {period}{ev.months ? ` · ${fmtMonths(ev.months)}` : ""}
                       </div>
                       {bullets.length > 0 && (
@@ -348,9 +348,9 @@ function MetaRow({ icon, label, value }: { icon: React.ReactNode; label: string;
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 0", borderBottom: "1px solid var(--fk-line-2)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--fk-ink-4)" }}>
         {icon}
-        <span style={{ fontSize: 15, fontWeight: 500 }}>{label}</span>
+        <span style={{ fontSize: 16, fontWeight: 500 }}>{label}</span>
       </div>
-      <span style={{ fontSize: 15, color: "var(--fk-ink-2)", fontWeight: 500 }}>{value}</span>
+      <span style={{ fontSize: 16, color: "var(--fk-ink-2)", fontWeight: 500 }}>{value}</span>
     </div>
   )
 }
@@ -364,7 +364,7 @@ function TeamRow({ label, names }: { label: string; names: string[] }) {
       </div>
       <div>
         <div style={{ fontSize: 11, fontWeight: 600, color: "var(--fk-ink-4)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</div>
-        <div style={{ fontSize: 15, color: "var(--fk-ink)", marginTop: 2 }}>{names.join(", ")}</div>
+        <div style={{ fontSize: 16, color: "var(--fk-ink)", marginTop: 2 }}>{names.join(", ")}</div>
       </div>
     </div>
   )
@@ -372,7 +372,7 @@ function TeamRow({ label, names }: { label: string; names: string[] }) {
 
 function ModalEmptyState({ message }: { message: string }) {
   return (
-    <div style={{ textAlign: "center", padding: "24px 0", fontSize: 13, color: "var(--fk-ink-4)" }}>
+    <div style={{ textAlign: "center", padding: "24px 0", fontSize: 14, color: "var(--fk-ink-4)" }}>
       {message}
     </div>
   )

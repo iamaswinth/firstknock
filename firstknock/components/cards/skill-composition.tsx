@@ -33,7 +33,7 @@ export function SkillComposition({ skills }: SkillCompositionProps) {
         <span style={{
           display: "inline-flex", alignItems: "center", gap: 4,
           height: 26, padding: "0 10px", borderRadius: 999,
-          fontSize: 13, fontWeight: 600, color: "var(--fk-green)",
+          fontSize: 14, fontWeight: 600, color: "var(--fk-green)",
           background: "var(--fk-card)", boxShadow: "var(--fk-shadow-sm)", border: "1px solid var(--fk-line)",
         }}>
           <ChevronUp size={12} strokeWidth={2.2} />

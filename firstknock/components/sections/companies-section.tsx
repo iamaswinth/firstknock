@@ -160,12 +160,12 @@ function CompanyRow({
         </div>
 
         {/* Date range */}
-        <div style={{ fontSize: 13, color: "var(--fk-ink-3)" }}>
+        <div style={{ fontSize: 14, color: "var(--fk-ink-3)" }}>
           {dateRange}
         </div>
 
         {/* Duration */}
-        <div style={{ fontSize: 13, color: "var(--fk-ink-3)" }}>
+        <div style={{ fontSize: 14, color: "var(--fk-ink-3)" }}>
           {totalMonths > 0 ? fmtMonths(totalMonths) : "—"}
         </div>
 
@@ -262,7 +262,7 @@ export function CompaniesSection({ events, resume_experience }: CompaniesSection
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "7px 14px", borderRadius: 8,
             background: "transparent", border: "1px solid var(--fk-line)",
-            fontSize: 13, fontWeight: 500, color: "var(--fk-ink-2)",
+            fontSize: 14, fontWeight: 500, color: "var(--fk-ink-2)",
             cursor: "pointer",
           }}>
             <SlidersHorizontal size={13} />

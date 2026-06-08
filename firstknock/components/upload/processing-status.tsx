@@ -146,7 +146,7 @@ function DoneRow({ stage }: { stage: Stage }) {
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-        <span style={{ fontSize: 13, fontWeight: 400, color: "var(--fk-ink-2)", lineHeight: "1.4" }}>
+        <span style={{ fontSize: 14, fontWeight: 400, color: "var(--fk-ink-2)", lineHeight: "1.4" }}>
           {STAGE_TITLE[stage]}
         </span>
         <span style={{ fontSize: 11, color: "var(--fk-ink-4)", lineHeight: "1.4" }}>
@@ -175,7 +175,7 @@ function ActiveRow({ stage, activeCopy }: { stage: Stage; activeCopy: string }) 
         }} />
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, flex: 1, minWidth: 0 }}>
-        <span style={{ fontSize: 13, fontWeight: 500, color: "var(--fk-ink)", lineHeight: "1.4" }}>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "var(--fk-ink)", lineHeight: "1.4" }}>
           {STAGE_TITLE[stage]}
         </span>
         <span style={{
@@ -202,7 +202,7 @@ function PendingRow({ stage }: { stage: Stage }) {
       <div style={{ flexShrink: 0 }}>
         <div style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--fk-ink-5)" }} />
       </div>
-      <span style={{ fontSize: 13, fontWeight: 400, color: "var(--fk-ink-5)", lineHeight: "1.4" }}>
+      <span style={{ fontSize: 14, fontWeight: 400, color: "var(--fk-ink-5)", lineHeight: "1.4" }}>
         {STAGE_TITLE[stage]}
       </span>
     </div>

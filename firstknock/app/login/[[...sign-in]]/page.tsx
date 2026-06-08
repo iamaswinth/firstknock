@@ -130,7 +130,7 @@ export default function LoginPage() {
             </h1>
             <p
               style={{
-                fontSize: 13.5,
+                fontSize: 14,
                 color: "#9a9a9a",
                 margin: "0 0 28px",
                 lineHeight: 1.5,

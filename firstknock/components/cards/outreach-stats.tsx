@@ -20,7 +20,7 @@ export function MatchesFoundCard({ count = 0, delta }: OutreachStatProps) {
           <div style={{ fontSize: 44, fontWeight: 700, letterSpacing: "-0.035em", lineHeight: 1, color: "var(--fk-ink)" }}>
             {count}
           </div>
-          <div style={{ fontSize: 13, color: "var(--fk-ink-3)", marginTop: 4 }}>job matches</div>
+          <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 4 }}>job matches</div>
         </div>
         {delta && (
           <div style={{ fontSize: 14, fontWeight: 600, color: "#ef7b2e", textAlign: "right" }}>{delta}</div>
@@ -44,7 +44,7 @@ export function EmailsSentCard({ count = 0, delta }: OutreachStatProps) {
           <div style={{ fontSize: 44, fontWeight: 700, letterSpacing: "-0.035em", lineHeight: 1, color: "var(--fk-ink)" }}>
             {count}
           </div>
-          <div style={{ fontSize: 13, color: "var(--fk-ink-3)", marginTop: 4 }}>emails sent</div>
+          <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 4 }}>emails sent</div>
         </div>
         {delta && (
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fk-blue)", textAlign: "right" }}>{delta}</div>
@@ -68,7 +68,7 @@ export function RepliesCard({ count = 0, delta }: OutreachStatProps) {
           <div style={{ fontSize: 44, fontWeight: 700, letterSpacing: "-0.035em", lineHeight: 1, color: "var(--fk-ink)" }}>
             {count}
           </div>
-          <div style={{ fontSize: 13, color: "var(--fk-ink-3)", marginTop: 4 }}>replies received</div>
+          <div style={{ fontSize: 14, color: "var(--fk-ink-3)", marginTop: 4 }}>replies received</div>
         </div>
         {delta && (
           <div style={{ fontSize: 14, fontWeight: 600, color: "var(--fk-green)", textAlign: "right" }}>{delta}</div>

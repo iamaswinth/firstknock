@@ -53,7 +53,7 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
         <span>Synced · {syncDate}</span>
       </button>
 
-      <span style={{ color: "var(--fk-ink-4)", fontSize: 13, padding: "0 2px" }}>from</span>
+      <span style={{ color: "var(--fk-ink-4)", fontSize: 14, padding: "0 2px" }}>from</span>
 
       {/* Resume pill + dropdown */}
       <div ref={menuRef} style={{ position: "relative" }}>
@@ -80,7 +80,7 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
               <div style={{ fontSize: 11, color: "var(--fk-ink-4)", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 3 }}>
                 Current resume
               </div>
-              <div style={{ fontSize: 13, color: "var(--fk-ink-2)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 14, color: "var(--fk-ink-2)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {resumeName}
               </div>
             </div>
@@ -124,13 +124,13 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => setConfirmDelete(false)}
-                style={{ flex: 1, height: 34, borderRadius: 8, border: "1px solid var(--fk-line-2)", background: "var(--fk-card-2)", fontSize: 13, fontWeight: 500, color: "var(--fk-ink-2)", cursor: "pointer" }}
+                style={{ flex: 1, height: 34, borderRadius: 8, border: "1px solid var(--fk-line-2)", background: "var(--fk-card-2)", fontSize: 14, fontWeight: 500, color: "var(--fk-ink-2)", cursor: "pointer" }}
               >
                 Cancel
               </button>
               <button
                 onClick={() => { setConfirmDelete(false); onDelete?.() }}
-                style={{ flex: 1, height: 34, borderRadius: 8, border: "none", background: "var(--fk-pink)", fontSize: 13, fontWeight: 600, color: "#fff", cursor: "pointer" }}
+                style={{ flex: 1, height: 34, borderRadius: 8, border: "none", background: "var(--fk-pink)", fontSize: 14, fontWeight: 600, color: "#fff", cursor: "pointer" }}
               >
                 Delete
               </button>
@@ -146,7 +146,7 @@ const pillStyle: React.CSSProperties = {
   display: "inline-flex", alignItems: "center", gap: 8,
   height: 38, padding: "0 13px",
   background: "var(--fk-card)", border: "1px solid var(--fk-line-2)",
-  borderRadius: 11, fontSize: 13, fontWeight: 500, color: "var(--fk-ink-2)",
+  borderRadius: 11, fontSize: 14, fontWeight: 500, color: "var(--fk-ink-2)",
   cursor: "pointer",
 }
 
@@ -154,6 +154,6 @@ const menuItemStyle: React.CSSProperties = {
   display: "flex", alignItems: "center", gap: 10,
   width: "100%", padding: "10px 14px",
   background: "transparent", border: "none",
-  fontSize: 13, fontWeight: 500, color: "var(--fk-ink-2)",
+  fontSize: 14, fontWeight: 500, color: "var(--fk-ink-2)",
   cursor: "pointer", textAlign: "left",
 }

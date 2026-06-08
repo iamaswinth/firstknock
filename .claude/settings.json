@@ -32,7 +32,9 @@
       "Bash(git commit -m 'fix: coerce unknown props to boolean in StudiedAtDetail JSX conditions *)",
       "Bash(git commit --allow-empty -m 'ci: trigger Vercel redeploy on latest commit *)",
       "Bash(git commit -m 'fix: make ProcessingStatus context prop optional for standalone processing page *)",
-      "Bash(node -e \"require\\('framer-motion'\\); console.log\\('ok'\\)\")"
+      "Bash(node -e \"require\\('framer-motion'\\); console.log\\('ok'\\)\")",
+      "Bash(Get-ChildItem -Recurse -Path \"c:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\firstknock\\\\app\" -Filter \"*.tsx\")",
+      "Bash(Select-Object FullName)"
     ],
     "additionalDirectories": [
       "C:\\Users\\iamas\\Storage\\FIRSTKNOCK\\firstknock\\app\\processing",

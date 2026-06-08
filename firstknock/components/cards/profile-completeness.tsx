@@ -63,7 +63,7 @@ export function ProfileCompleteness({ data }: { data: ProfileCompletenessRespons
         <div style={{
           marginTop: 16, padding: "10px 14px", borderRadius: 12,
           background: "var(--fk-card-2)", border: "1px solid var(--fk-line)",
-          fontSize: 13, color: "var(--fk-ink-2)", lineHeight: 1.5,
+          fontSize: 14, color: "var(--fk-ink-2)", lineHeight: 1.5,
         }}>
           💡 {top_suggestion}
         </div>

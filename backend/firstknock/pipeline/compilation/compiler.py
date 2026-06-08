@@ -9,6 +9,7 @@ from firstknock.pipeline.compilation.schemas import (
     MergedProfile,
     CompiledProfile,
     CompiledExperience,
+    CompanyMeta,
     ExperienceInsight,
     CompiledProject,
     ProjectInsight,
@@ -79,31 +80,19 @@ _MERGED_PROFILE_TOOL = {
     },
 }
 
-_COMPILED_PROFILE_TOOL = {
-    "name": "submit_compiled_profile",
-    "description": "Submit the final compiled profile with validated company metadata.",
+_COMPANY_META_TOOL = {
+    "name": "submit_company_meta",
+    "description": "Submit validated company metadata keyed by company name.",
     "input_schema": {
         "type": "object",
         "properties": {
-            "experience": {
+            "companies": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "company":              {"type": "string"},
-                        "title":                {"type": "string"},
-                        "start_date":           {"type": ["string", "null"]},
-                        "end_date":             {"type": ["string", "null"]},
-                        "months":               {"type": ["integer", "null"]},
-                        "is_current":           {"type": "boolean"},
-                        "location":             {"type": ["string", "null"]},
-                        "description":          {"type": "array", "items": {"type": "string"}},
-                        "tech_stack":           {"type": "array", "items": {"type": "string"}},
-                        "linkedin_title":       {"type": ["string", "null"]},
-                        "linkedin_start_date":  {"type": ["string", "null"]},
-                        "linkedin_job_skills":  {"type": "array", "items": {"type": "string"}},
-                        "source":               {"type": "string"},
-                        "company_meta": {
+                        "company": {"type": "string"},
+                        "meta": {
                             "oneOf": [
                                 {"type": "null"},
                                 {
@@ -130,27 +119,11 @@ _COMPILED_PROFILE_TOOL = {
                             ]
                         },
                     },
-                    "required": ["company", "title", "source"],
+                    "required": ["company", "meta"],
                 },
-            },
-            "education": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "institution":  {"type": "string"},
-                        "degree":       {"type": ["string", "null"]},
-                        "field":        {"type": ["string", "null"]},
-                        "start_year":   {"type": ["integer", "null"]},
-                        "end_year":     {"type": ["integer", "null"]},
-                        "ranking_tier": {"type": "string"},
-                        "source":       {"type": "string"},
-                    },
-                    "required": ["institution", "degree", "field", "source"],
-                },
-            },
+            }
         },
-        "required": ["experience", "education"],
+        "required": ["companies"],
     },
 }
 
@@ -220,7 +193,7 @@ async def _merge_experience_education(extracted: dict, enriched: dict) -> Merged
     client = _get_client()
     response = await client.messages.create(
         model=_HAIKU_MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         system=system_prompt,
         tools=[_MERGED_PROFILE_TOOL],
         tool_choice={"type": "tool", "name": "submit_merged_profile"},
@@ -240,13 +213,28 @@ async def _validate_companies(merged: MergedProfile, enriched: dict) -> Compiled
     company_enrichment = enriched.get("companies", {})
 
     if not company_enrichment:
-        # Nothing to validate — return as-is with all company_meta null
         return CompiledProfile(experience=merged.experience, education=merged.education)
 
-    payload = {
-        "merged_experience": [e.model_dump() for e in merged.experience],
-        "company_enrichment": company_enrichment,
-    }
+    # Build one representative context per unique company (richest description wins)
+    seen: dict[str, dict] = {}
+    for e in merged.experience:
+        co = e.company
+        if co not in seen or len(e.description) > len(seen[co]["description_snippet"]):
+            seen[co] = {
+                "company": co,
+                "representative_title": e.title,
+                "location": e.location,
+                "description_snippet": e.description[:2],
+            }
+
+    companies_to_validate = [
+        {**ctx, "enrichment": company_enrichment[ctx["company"]]}
+        for ctx in seen.values()
+        if ctx["company"] in company_enrichment
+    ]
+
+    if not companies_to_validate:
+        return CompiledProfile(experience=merged.experience, education=merged.education)
 
     system_prompt = (
         "You are a data quality validator. You check whether web-sourced company data "
@@ -254,47 +242,45 @@ async def _validate_companies(merged: MergedProfile, enriched: dict) -> Compiled
     )
 
     user_prompt = (
-        "Your ONLY job is to set company_meta on each experience entry. "
-        "DO NOT modify any other field — copy every other field exactly as provided.\n\n"
+        "For each company, decide whether the enrichment data actually describes the company "
+        "the person worked at. Use the role title, location, and description snippet as ground truth.\n\n"
         "VALIDATION RULES:\n"
-        "1. Use the person's role, location, and description for that entry as ground truth.\n\n"
-        "2. KEEP the enrichment (set company_meta) when the Perplexity data is consistent with "
-        "the experience entry: same or closely related industry, same country/region, and a "
-        "plausible company size for the role described.\n\n"
-        "3. DISCARD the enrichment (company_meta: null) when any of these mismatches exist:\n"
-        "   - INDUSTRY MISMATCH: The role/description describes a completely different business "
-        "than the enrichment (e.g. role is at a logistics startup but enrichment describes a "
-        "healthcare SaaS company with the same name).\n"
-        "   - LOCATION MISMATCH: The person's work location for that role is in a different "
-        "country or distant region from the enrichment headquarters "
-        "(e.g. role in Germany but enrichment HQ is Australia).\n"
-        "   - SCALE MISMATCH: The role context implies a very small or personal company "
-        "(founder/owner, no description, early-stage) but the enrichment shows a large funded "
-        "company — they are likely different companies sharing a name.\n\n"
-        "4. If a company has no enrichment data at all, set company_meta: null.\n\n"
-        "5. CRITICAL — copy all other fields byte-for-byte: do not change title, start_date, "
-        "end_date, months, is_current, location, description, tech_stack, source, or any field "
-        "other than company_meta.\n\n"
-        f"DATA:\n{json.dumps(payload, default=str)}\n\n"
-        "Call submit_compiled_profile with the result. Education must be passed unchanged: "
-        f"{json.dumps([e.model_dump() for e in merged.education], default=str)}"
+        "1. KEEP (set meta to the enrichment object) when: same/related industry, same "
+        "country/region, plausible size for the role described.\n\n"
+        "2. DISCARD (meta: null) when:\n"
+        "   - INDUSTRY MISMATCH: role describes a completely different business than enrichment.\n"
+        "   - LOCATION MISMATCH: role location is in a different country than enrichment HQ.\n"
+        "   - SCALE MISMATCH: role implies very small/personal company but enrichment shows a "
+        "large funded one — likely different companies sharing a name.\n\n"
+        "3. If a company has no enrichment, set meta: null.\n\n"
+        f"DATA:\n{json.dumps(companies_to_validate, default=str)}\n\n"
+        "Call submit_company_meta with one entry per company."
     )
 
     client = _get_client()
     response = await client.messages.create(
         model=_HAIKU_MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         system=system_prompt,
-        tools=[_COMPILED_PROFILE_TOOL],
-        tool_choice={"type": "tool", "name": "submit_compiled_profile"},
+        tools=[_COMPANY_META_TOOL],
+        tool_choice={"type": "tool", "name": "submit_company_meta"},
         messages=[{"role": "user", "content": user_prompt}],
     )
 
+    # Build company → meta lookup and apply to all entries programmatically
+    meta_map: dict[str, CompanyMeta | None] = {}
     for block in response.content:
-        if block.type == "tool_use" and block.name == "submit_compiled_profile":
-            return CompiledProfile.model_validate(block.input)
+        if block.type == "tool_use" and block.name == "submit_company_meta":
+            for entry in block.input.get("companies", []):
+                raw_meta = entry.get("meta")
+                meta_map[entry.get("company", "")] = (
+                    CompanyMeta.model_validate(raw_meta) if raw_meta else None
+                )
 
-    raise ValueError("No tool_use block in validation response")
+    for e in merged.experience:
+        e.company_meta = meta_map.get(e.company)
+
+    return CompiledProfile(experience=merged.experience, education=merged.education)
 
 
 # ── Call 3: Experience Insight Enrichment ────────────────────────────────────
@@ -302,6 +288,7 @@ async def _validate_companies(merged: MergedProfile, enriched: dict) -> Compiled
 _INSIGHT_ITEM_SCHEMA = {
     "type": "object",
     "properties": {
+        "index":                   {"type": "integer"},
         "company":                 {"type": "string"},
         "title":                   {"type": "string"},
         "problems_solved":         {"type": "array", "items": {"type": "string"}},
@@ -312,7 +299,7 @@ _INSIGHT_ITEM_SCHEMA = {
         "ai_systems_built":        {"type": "array", "items": {"type": "string"}},
         "transferable_experience": {"type": "array", "items": {"type": "string"}},
     },
-    "required": ["company", "title"],
+    "required": ["index", "company", "title"],
 }
 
 _EXPERIENCE_INSIGHTS_TOOL = {
@@ -400,7 +387,7 @@ async def _enrich_experience_insights(compiled: CompiledProfile) -> CompiledProf
     client = _get_client()
     response = await client.messages.create(
         model=_HAIKU_MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         system=_INSIGHT_SYSTEM,
         tools=[_EXPERIENCE_INSIGHTS_TOOL],
         tool_choice={"type": "tool", "name": "submit_experience_insights"},
@@ -410,9 +397,10 @@ async def _enrich_experience_insights(compiled: CompiledProfile) -> CompiledProf
     for block in response.content:
         if block.type == "tool_use" and block.name == "submit_experience_insights":
             raw_insights: list[dict] = block.input.get("insights", [])
-            for i, insight_dict in enumerate(raw_insights):
-                if i < len(compiled.experience):
-                    compiled.experience[i].insights = ExperienceInsight(
+            for insight_dict in raw_insights:
+                idx = insight_dict.get("index")
+                if idx is not None and 0 <= idx < len(compiled.experience):
+                    compiled.experience[idx].insights = ExperienceInsight(
                         problems_solved=insight_dict.get("problems_solved") or [],
                         workflows_built=insight_dict.get("workflows_built") or [],
                         business_functions=insight_dict.get("business_functions") or [],
