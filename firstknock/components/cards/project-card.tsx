@@ -246,7 +246,7 @@ export function ProjectCard({ project, repo }: ProjectCardProps) {
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fk-ink)", lineHeight: 1.3 }}>{project.name}</div>
           <div style={{
-            fontSize: 13, color: "var(--fk-ink-3)", marginTop: 4, lineHeight: 1.5,
+            fontSize: 14, color: "var(--fk-ink-3)", marginTop: 4, lineHeight: 1.5,
             display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
           }}>
             {project.description}

@@ -33,7 +33,7 @@ export function InferredSkills({ skills }: { skills: InferredSkillDetail[] }) {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   {/* Name + confidence */}
                   <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                    <span style={{ fontSize: 15, fontWeight: 600, color: "var(--fk-ink)" }}>{s.name}</span>
+                    <span style={{ fontSize: 16, fontWeight: 600, color: "var(--fk-ink)" }}>{s.name}</span>
                     <span style={{
                       marginLeft: "auto", fontSize: 12, fontWeight: 700,
                       padding: "2px 9px", borderRadius: 999,

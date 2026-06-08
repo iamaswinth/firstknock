@@ -148,7 +148,7 @@ function CompanyRow({
           <CompanyLogo logoUrl={detail?.logo_url ?? null} name={name} size={40} />
           <div style={{ minWidth: 0 }}>
             <div style={{
-              fontSize: 15, fontWeight: 700, color: "var(--fk-ink)", lineHeight: 1.25,
+              fontSize: 16, fontWeight: 700, color: "var(--fk-ink)", lineHeight: 1.25,
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
             }}>
               {name}
@@ -235,7 +235,7 @@ export function CompaniesSection({ events, resume_experience }: CompaniesSection
     }}>
       {/* Header */}
       <div style={{
-        padding: "20px 24px",
+        padding: "24px 28px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",

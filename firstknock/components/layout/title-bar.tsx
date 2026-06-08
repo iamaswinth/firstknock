@@ -33,7 +33,7 @@ export function TitleBar({ syncDate = "May 29", resumeName = "resume.pdf", onUpl
   return (
     <div id="top" style={{ display: "flex", alignItems: "center", gap: 16, margin: "22px 0 18px", flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <h1 style={{ margin: 0, fontSize: 38, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--fk-ink)" }}>
+        <h1 style={{ margin: 0, fontSize: 40, fontWeight: 600, letterSpacing: "-0.025em", color: "var(--fk-ink)" }}>
           Overview
         </h1>
         <button style={{

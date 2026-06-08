@@ -77,9 +77,9 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
         background: "var(--fk-page)",
         minHeight: "100vh",
         width: "100%",
-        maxWidth: 1500,
+        maxWidth: 1280,
         margin: "0 auto",
-        padding: "20px 28px 32px",
+        padding: "24px 48px 40px",
         display: "flex",
         flexDirection: "column",
       }}
@@ -96,7 +96,7 @@ export function DashboardContent({ userId, onOpenUploadModal, onReingest, onDele
         />
 
         {/* Bento grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 24 }}>
 
           {/* Row 1 — Graph + Insight (full height, no SkillComposition) */}
           <div style={{ gridColumn: "span 8", display: "flex" }}>

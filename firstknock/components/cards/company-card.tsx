@@ -421,7 +421,7 @@ export function CompanyCard({ events, resume_experience }: CompanyCardProps) {
         <div>
           <div style={{ fontSize: 16, fontWeight: 700, color: "var(--fk-ink)", lineHeight: 1.3 }}>{name}</div>
           {detail?.industry && (
-            <div style={{ fontSize: 13, color: "var(--fk-ink-4)", marginTop: 2 }}>{detail.industry}</div>
+            <div style={{ fontSize: 14, color: "var(--fk-ink-4)", marginTop: 2 }}>{detail.industry}</div>
           )}
         </div>
 

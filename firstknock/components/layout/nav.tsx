@@ -24,7 +24,7 @@ export function Nav({ name, profilePictureUrl, onUpload }: NavProps) {
   const pathname = usePathname()
 
   return (
-    <nav style={{ display: "flex", alignItems: "center", gap: 18, height: 56 }}>
+    <nav style={{ display: "flex", alignItems: "center", gap: 18, height: 64 }}>
       {/* Brand */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{
