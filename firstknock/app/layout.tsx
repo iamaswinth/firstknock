@@ -1,4 +1,4 @@
-import type { Metadata } from "next"
+import type { Metadata, Viewport } from "next"
 import { Inter, Geist_Mono } from "next/font/google"
 import { ClerkProvider } from "@clerk/nextjs"
 import { QueryProvider } from "@/providers/query-provider"
@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 })
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+}
 
 export const metadata: Metadata = {
   title: "FirstKnock",
