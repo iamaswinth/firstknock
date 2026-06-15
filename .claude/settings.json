@@ -34,7 +34,9 @@
       "Bash(git commit -m 'fix: make ProcessingStatus context prop optional for standalone processing page *)",
       "Bash(node -e \"require\\('framer-motion'\\); console.log\\('ok'\\)\")",
       "Bash(Get-ChildItem -Recurse -Path \"c:\\\\Users\\\\iamas\\\\Storage\\\\FIRSTKNOCK\\\\firstknock\\\\app\" -Filter \"*.tsx\")",
-      "Bash(Select-Object FullName)"
+      "Bash(Select-Object FullName)",
+      "Bash(ls \"c:/Users/iamas/OneDrive/Desktop/THE COLD/Shubham crawler/\" 2>/dev/null && echo \"old folder exists\" || echo \"old folder not found\")",
+      "Read(//c/Users/iamas/OneDrive/Desktop/THE COLD/Shubham crawler/**)"
     ],
     "additionalDirectories": [
       "C:\\Users\\iamas\\Storage\\FIRSTKNOCK\\firstknock\\app\\processing",

@@ -1,0 +1,14 @@
+# secrets & session files — never commit these
+.env
+cookies.json
+algolia_key.txt
+
+# local databases
+*.db
+*.sqlite3
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
